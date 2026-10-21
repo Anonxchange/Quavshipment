@@ -1,2 +1,2 @@
 - [Qelvaron business details](qelvaron-business-details.md) — Miami-based logistics company; street address, email, and phone remain unconfirmed.
-- [Qelvaron site direction](qelvaron-site-direction.md) — retain the supplied Webflow export’s design and make only targeted brand/contact changes.
+- [Qelvaron site direction](qelvaron-site-direction.md) — keep the export design; limit navigation to Services, Tracking, and Contact Us, with no cart.
