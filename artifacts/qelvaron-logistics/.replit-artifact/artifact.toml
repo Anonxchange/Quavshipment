@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Qelvaron Global Logistics"
+description = "A public-facing logistics website for Qelvaron Global Logistics, based in Miami, Florida, with company contact details to be confirmed."
+version = "1.0.0"
+id = "artifacts/qelvaron-logistics"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 26262
+
+[services.development]
+run = "pnpm --filter @workspace/qelvaron-logistics run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/qelvaron-logistics", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/qelvaron-logistics/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "26262"
+BASE_PATH = "/"

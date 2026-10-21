@@ -1,0 +1,9 @@
+@theme inline {
+  --color-primary: #FF5D18;
+  --color-secondary: #060517;
+  --color-accent: #3898EC;
+  --color-background: #FAFAFA;
+  --color-foreground: #060517;
+  --color-link: #3898EC;
+  --font-sans: "Aspekta", ui-sans-serif, system-ui, sans-serif;
+}
