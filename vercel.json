@@ -1,0 +1,33 @@
+{
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "PORT=26262 BASE_PATH=/ pnpm --filter @workspace/qelvaron-logistics run build",
+  "outputDirectory": "artifacts/qelvaron-logistics/dist/public",
+  "trailingSlash": true,
+  "redirects": [
+    {
+      "source": "/about",
+      "destination": "/about/",
+      "permanent": true
+    },
+    {
+      "source": "/services",
+      "destination": "/services/",
+      "permanent": true
+    },
+    {
+      "source": "/contact",
+      "destination": "/contact/",
+      "permanent": true
+    },
+    {
+      "source": "/how-it-works",
+      "destination": "/how-it-works/",
+      "permanent": true
+    },
+    {
+      "source": "/tracking",
+      "destination": "/#tracking",
+      "permanent": false
+    }
+  ]
+}

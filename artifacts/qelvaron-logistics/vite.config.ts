@@ -1,9 +1,39 @@
 import path from 'path';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 
 import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
+
+const staticExportPages: Plugin = {
+  name: 'qelvaron-static-export-pages',
+  configureServer(server) {
+    server.middlewares.use((request, _response, next) => {
+      const [pathname, query] = (request.url ?? '/').split('?', 2);
+      const page = /^\/(about|services|contact|how-it-works)\/?$/.exec(
+        pathname,
+      )?.[1];
+
+      if (page) {
+        request.url = `/${page}/index.html${query ? `?${query}` : ''}`;
+      }
+      next();
+    });
+  },
+  configurePreviewServer(server) {
+    server.middlewares.use((request, _response, next) => {
+      const [pathname, query] = (request.url ?? '/').split('?', 2);
+      const page = /^\/(about|services|contact|how-it-works)\/?$/.exec(
+        pathname,
+      )?.[1];
+
+      if (page) {
+        request.url = `/${page}/index.html${query ? `?${query}` : ''}`;
+      }
+      next();
+    });
+  },
+};
 
 const rawPort = process.env.PORT;
 
@@ -30,6 +60,7 @@ if (!basePath) {
 export default defineConfig({
   base: basePath,
   plugins: [
+    staticExportPages,
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),

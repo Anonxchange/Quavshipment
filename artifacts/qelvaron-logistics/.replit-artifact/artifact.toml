@@ -1,7 +1,7 @@
 kind = "web"
 previewPath = "/"
 title = "Qelvaron Global Logistics"
-description = "A public-facing logistics website for Qelvaron Global Logistics, based in Miami, Florida, with company contact details to be confirmed."
+description = "A public-facing logistics website for Qelvaron Global Logistics, showcasing services and helping visitors prepare shipment inquiries."
 version = "1.0.0"
 id = "artifacts/qelvaron-logistics"
 router = "path"
@@ -18,6 +18,38 @@ run = "pnpm --filter @workspace/qelvaron-logistics run dev"
 build = [ "pnpm", "--filter", "@workspace/qelvaron-logistics", "run", "build" ]
 serve = "static"
 publicDir = "artifacts/qelvaron-logistics/dist/public"
+
+[[services.production.rewrites]]
+from = "/about"
+to = "/about/index.html"
+
+[[services.production.rewrites]]
+from = "/about/"
+to = "/about/index.html"
+
+[[services.production.rewrites]]
+from = "/services"
+to = "/services/index.html"
+
+[[services.production.rewrites]]
+from = "/services/"
+to = "/services/index.html"
+
+[[services.production.rewrites]]
+from = "/contact"
+to = "/contact/index.html"
+
+[[services.production.rewrites]]
+from = "/contact/"
+to = "/contact/index.html"
+
+[[services.production.rewrites]]
+from = "/how-it-works"
+to = "/how-it-works/index.html"
+
+[[services.production.rewrites]]
+from = "/how-it-works/"
+to = "/how-it-works/index.html"
 
 [[services.production.rewrites]]
 from = "/*"
