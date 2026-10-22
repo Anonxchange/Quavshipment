@@ -1,3 +1,15 @@
+/* Keep long Supabase Auth IDs readable in the first-operator bootstrap state. */
+.admin-user-id {
+  display: block;
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px solid #dedbd5;
+  border-radius: 4px;
+  background: #f8f7f4;
+  color: #272a2d;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
 .qelvaron-admin{min-height:100dvh;background:var(--_colors---primary-100);color:var(--_colors---secondary-200)}
 .qelvaron-admin .container-large{height:auto}
 .qelvaron-site-header .navbar{position:relative;inset:auto;width:100%;margin:0;padding:var(--_sizes---spacing--spacing-small) 0;border-bottom:1px solid var(--_colors---border-300);background:var(--_colors---primary-100)}
@@ -113,6 +125,8 @@ tbody tr:hover{background:var(--_colors---primary-200)}
 .form-section h3{margin:0 0 var(--_sizes---spacing--spacing-small);font-family:var(--font-family--aspekta);font-size:var(--_typography---text-line-size--small);font-weight:var(--font-weight--medium)}
 .form-section .form-grid{gap:var(--_sizes---spacing--spacing-xsmall)}
 .form-field textarea.small{min-height:4.6rem}
+.charge-total-summary{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.75rem .9rem;border:1px solid var(--_colors---border-300);border-radius:var(--_sizes---spacing--bordar-redius--redius-xsmall);background:var(--_colors---primary-200);color:var(--_colors---secondary-200);font-size:var(--_typography---text-line-size--small)}
+.charge-total-summary strong{font-family:var(--font-family--aspekta);font-size:1.05rem;font-weight:var(--font-weight--medium)}
 .modal-footer{display:flex;justify-content:flex-end;gap:var(--_sizes---spacing--spacing-xsmall);padding-top:var(--_sizes---spacing--spacing-small)}
 .toast{position:fixed;right:var(--_sizes---spacing--spacing-regular);bottom:var(--_sizes---spacing--spacing-regular);z-index:30;padding:.8rem 1rem;border-radius:var(--_sizes---spacing--bordar-redius--redius-xsmall);background:var(--_colors---secondary-200);color:var(--_colors---primary-100);font-size:var(--_typography---text-line-size--small)}
 .admin-login-main{min-height:calc(100dvh - 6rem);background:var(--_colors---primary-200)}
@@ -211,7 +225,7 @@ tbody tr:hover{background:var(--_colors---primary-200)}
   .print-block h2{margin:0 0 .5rem;font-family:var(--font-family--aspekta);font-size:.75rem;letter-spacing:.05em;text-transform:uppercase}
   .print-block p{margin:.15rem 0;font-size:.7rem;line-height:1.6}
   .print-block.full{grid-column:1/-1}
-  .print-payment{display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem}
+  .print-payment{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.4rem}
   .print-payment div{padding:.5rem;background:var(--_colors---primary-200);font-size:.65rem}
   .print-payment b{display:block;margin-top:.25rem;font-size:.75rem}
   .print-footer{margin-top:1rem;padding-top:.5rem;border-top:1px solid var(--_colors---border-300);color:var(--_colors---dark-100);font-size:.65rem}

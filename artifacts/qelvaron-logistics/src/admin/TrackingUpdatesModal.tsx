@@ -107,7 +107,7 @@ export default function TrackingUpdatesModal({
             <form className="form-section tracking-update-form" onSubmit={submit}>
               <h3>Add location update</h3>
               <p className="panel-note">
-                The status you save becomes the shipment’s current status and appears in the local tracking preview.
+                The status you save becomes the shipment’s current status and appears on the public tracking page.
               </p>
               {error && <div className="notice tracking-update-error" role="alert">{error}</div>}
 

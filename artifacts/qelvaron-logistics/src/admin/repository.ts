@@ -1,5 +1,19 @@
-export type ShipmentStatus = "Booked" | "Picked up" | "In transit" | "Stopover" | "Held by Customs" | "Out for delivery" | "Delayed" | "Delivered" | "Exception" | "Failed delivery";
+import { supabase } from "@/lib/supabase";
+
+export type ShipmentStatus =
+  | "Booked"
+  | "Picked up"
+  | "In transit"
+  | "Stopover"
+  | "Held by Customs"
+  | "Out for delivery"
+  | "Delayed"
+  | "Delivered"
+  | "Exception"
+  | "Failed delivery";
+
 export type PaymentStatus = "Pending" | "Partial" | "Paid" | "Overdue";
+
 export type TrackingUpdate = {
   id: string;
   shipmentId: string;
@@ -8,30 +22,315 @@ export type TrackingUpdate = {
   description: string;
   timestamp: string;
 };
+
 export type Shipment = {
-  id: string; tracking: string; created: string; status: ShipmentStatus; mode: string; carrier: string;
-  sender: string; senderEmail: string; senderPhone: string; originStreet: string; originCity: string; originRegion: string; originPostal: string; originCountry: string;
-  recipient: string; recipientEmail: string; recipientPhone: string; destinationStreet: string; destinationCity: string; destinationRegion: string; destinationPostal: string; destinationCountry: string;
-  cargo: string; packages: string; weight: string; dimensions: string; pickup: string; estimated: string;
-  total: string; paid: string; paymentMethod: string; paymentReference: string; paymentStatus: PaymentStatus; notes: string;
+  id: string;
+  tracking: string;
+  created: string;
+  status: ShipmentStatus;
+  mode: string;
+  carrier: string;
+  sender: string;
+  senderEmail: string;
+  senderPhone: string;
+  originStreet: string;
+  originCity: string;
+  originRegion: string;
+  originPostal: string;
+  originCountry: string;
+  recipient: string;
+  recipientEmail: string;
+  recipientPhone: string;
+  destinationStreet: string;
+  destinationCity: string;
+  destinationRegion: string;
+  destinationPostal: string;
+  destinationCountry: string;
+  cargo: string;
+  packages: string;
+  weight: string;
+  dimensions: string;
+  pickup: string;
+  estimated: string;
+  customFee: string;
+  total: string;
+  paid: string;
+  paymentMethod: string;
+  paymentReference: string;
+  paymentStatus: PaymentStatus;
+  notes: string;
 };
-export type EmailDraft = { id: string; tracking: string; recipient: string; subject: string; body: string; updated: string };
-const SHIPMENTS_KEY = "qelvaron-admin-demo-shipments-v1";
-const DRAFTS_KEY = "qelvaron-admin-demo-drafts-v1";
-const TRACKING_UPDATES_KEY = "qelvaron-admin-demo-tracking-updates-v1";
-const synthetic: Shipment[] = [
-  {id:"demo-001",tracking:"QGL-260614-0821",created:"2026-06-14",status:"In transit",mode:"Air",carrier:"SkyBridge Cargo",sender:"Marina Ortiz",senderEmail:"marina.ortiz@example.test",senderPhone:"+1 305 555 0148",originStreet:"1840 NW 21st Terrace",originCity:"Miami",originRegion:"FL",originPostal:"33142",originCountry:"United States",recipient:"Lucía Herrera",recipientEmail:"lucia.herrera@example.test",recipientPhone:"+57 601 555 0193",destinationStreet:"Carrera 13 # 82-45",destinationCity:"Bogotá",destinationRegion:"Cundinamarca",destinationPostal:"110221",destinationCountry:"Colombia",cargo:"Commercial textile samples",packages:"4",weight:"68.5 kg",dimensions:"60 × 45 × 38 cm",pickup:"2026-06-14",estimated:"2026-06-19",total:"842.50",paid:"500.00",paymentMethod:"Wire transfer",paymentReference:"DEMO-WIRE-092",paymentStatus:"Partial",notes:"Synthetic sample record for preview only."},
-  {id:"demo-002",tracking:"QGL-260612-0714",created:"2026-06-12",status:"Booked",mode:"Sea",carrier:"Atlantic Meridian",sender:"Daniel Brooks",senderEmail:"daniel.brooks@example.test",senderPhone:"+1 786 555 0172",originStreet:"9400 NW 36th Street, Suite 210",originCity:"Doral",originRegion:"FL",originPostal:"33178",originCountry:"United States",recipient:"Renato Alves",recipientEmail:"renato.alves@example.test",recipientPhone:"+55 11 5555 0186",destinationStreet:"Av. Paulista 1450",destinationCity:"São Paulo",destinationRegion:"SP",destinationPostal:"01310-100",destinationCountry:"Brazil",cargo:"Display fixtures",packages:"12",weight:"224 kg",dimensions:"120 × 80 × 76 cm",pickup:"2026-06-17",estimated:"2026-07-05",total:"1,640.00",paid:"1,640.00",paymentMethod:"Card",paymentReference:"DEMO-CARD-31",paymentStatus:"Paid",notes:"Synthetic sample record for preview only."},
-  {id:"demo-003",tracking:"QGL-260610-0438",created:"2026-06-10",status:"Delivered",mode:"Road",carrier:"Coastal Freight",sender:"Elena Rivera",senderEmail:"elena.rivera@example.test",senderPhone:"+1 305 555 0160",originStreet:"2801 NW 79th Avenue",originCity:"Doral",originRegion:"FL",originPostal:"33122",originCountry:"United States",recipient:"Camila Torres",recipientEmail:"camila.torres@example.test",recipientPhone:"+1 809 555 0197",destinationStreet:"Calle El Conde 88",destinationCity:"Santo Domingo",destinationRegion:"Distrito Nacional",destinationPostal:"10210",destinationCountry:"Dominican Republic",cargo:"Household goods",packages:"7",weight:"143 kg",dimensions:"Mixed cartons",pickup:"2026-06-10",estimated:"2026-06-13",total:"597.25",paid:"597.25",paymentMethod:"Cash",paymentReference:"DEMO-CASH-17",paymentStatus:"Paid",notes:"Synthetic sample record for preview only."}
-];
-function read<T>(key:string,fallback:T):T { try { const value=localStorage.getItem(key); return value ? JSON.parse(value) as T : fallback; } catch { return fallback; } }
-function write<T>(key:string,value:T):void { try { localStorage.setItem(key,JSON.stringify(value)); } catch { /* Storage can be unavailable in private browsing; keep the current session functional. */ } }
-export const demoRepository = {
-  shipments():Shipment[] { const saved=read<Shipment[]|null>(SHIPMENTS_KEY,null); if(saved) return saved; write(SHIPMENTS_KEY,synthetic); return synthetic; },
-  saveShipments(value:Shipment[]):void { write(SHIPMENTS_KEY,value); },
-  drafts():EmailDraft[] { return read<EmailDraft[]>(DRAFTS_KEY,[]); },
-  saveDrafts(value:EmailDraft[]):void { write(DRAFTS_KEY,value); },
-  trackingUpdates():TrackingUpdate[] { return read<TrackingUpdate[]>(TRACKING_UPDATES_KEY,[]); },
-  saveTrackingUpdates(value:TrackingUpdate[]):void { write(TRACKING_UPDATES_KEY,value); },
-  makeId():string { return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`; }
+
+export type EmailDraft = {
+  id: string;
+  shipmentId: string | null;
+  tracking: string;
+  recipient: string;
+  subject: string;
+  body: string;
+  updated: string;
+};
+
+type ShipmentRow = {
+  id: string;
+  tracking_number: string;
+  created_at: string;
+  status: ShipmentStatus;
+  mode: string;
+  carrier: string;
+  sender_name: string;
+  sender_email: string;
+  sender_phone: string;
+  origin_street: string;
+  origin_city: string;
+  origin_region: string;
+  origin_postal: string;
+  origin_country: string;
+  recipient_name: string;
+  recipient_email: string;
+  recipient_phone: string;
+  destination_street: string;
+  destination_city: string;
+  destination_region: string;
+  destination_postal: string;
+  destination_country: string;
+  cargo: string;
+  package_count: number;
+  weight: string;
+  dimensions: string;
+  pickup_date: string | null;
+  estimated_delivery: string | null;
+  custom_fee: number | string;
+  total_amount: number | string;
+  amount_paid: number | string;
+  payment_method: string;
+  payment_reference: string;
+  payment_status: PaymentStatus;
+  notes: string;
+};
+
+type TrackingUpdateRow = {
+  id: string;
+  shipment_id: string;
+  status: ShipmentStatus;
+  location: string;
+  description: string;
+  created_at: string;
+};
+
+type EmailDraftRow = {
+  id: string;
+  shipment_id: string | null;
+  tracking_reference: string;
+  recipient: string;
+  subject: string;
+  body: string;
+  updated_at: string;
+};
+
+function client() {
+  if (!supabase) {
+    throw new Error(
+      "Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY.",
+    );
+  }
+
+  return supabase;
+}
+
+function fromShipmentRow(row: ShipmentRow): Shipment {
+  return {
+    id: row.id,
+    tracking: row.tracking_number,
+    created: row.created_at.slice(0, 10),
+    status: row.status,
+    mode: row.mode,
+    carrier: row.carrier,
+    sender: row.sender_name,
+    senderEmail: row.sender_email,
+    senderPhone: row.sender_phone,
+    originStreet: row.origin_street,
+    originCity: row.origin_city,
+    originRegion: row.origin_region,
+    originPostal: row.origin_postal,
+    originCountry: row.origin_country,
+    recipient: row.recipient_name,
+    recipientEmail: row.recipient_email,
+    recipientPhone: row.recipient_phone,
+    destinationStreet: row.destination_street,
+    destinationCity: row.destination_city,
+    destinationRegion: row.destination_region,
+    destinationPostal: row.destination_postal,
+    destinationCountry: row.destination_country,
+    cargo: row.cargo,
+    packages: String(row.package_count),
+    weight: row.weight,
+    dimensions: row.dimensions,
+    pickup: row.pickup_date ?? "",
+    estimated: row.estimated_delivery ?? "",
+    customFee: String(row.custom_fee),
+    total: String(row.total_amount),
+    paid: String(row.amount_paid),
+    paymentMethod: row.payment_method,
+    paymentReference: row.payment_reference,
+    paymentStatus: row.payment_status,
+    notes: row.notes,
+  };
+}
+
+function toShipmentRow(shipment: Shipment) {
+  return {
+    status: shipment.status,
+    mode: shipment.mode,
+    carrier: shipment.carrier,
+    sender_name: shipment.sender,
+    sender_email: shipment.senderEmail,
+    sender_phone: shipment.senderPhone,
+    origin_street: shipment.originStreet,
+    origin_city: shipment.originCity,
+    origin_region: shipment.originRegion,
+    origin_postal: shipment.originPostal,
+    origin_country: shipment.originCountry,
+    recipient_name: shipment.recipient,
+    recipient_email: shipment.recipientEmail,
+    recipient_phone: shipment.recipientPhone,
+    destination_street: shipment.destinationStreet,
+    destination_city: shipment.destinationCity,
+    destination_region: shipment.destinationRegion,
+    destination_postal: shipment.destinationPostal,
+    destination_country: shipment.destinationCountry,
+    cargo: shipment.cargo,
+    package_count: Math.max(1, Number.parseInt(shipment.packages, 10) || 1),
+    weight: shipment.weight,
+    dimensions: shipment.dimensions,
+    pickup_date: shipment.pickup || null,
+    estimated_delivery: shipment.estimated || null,
+    custom_fee: Number(shipment.customFee) || 0,
+    total_amount: Number(shipment.total) || 0,
+    amount_paid: Number(shipment.paid) || 0,
+    payment_method: shipment.paymentMethod,
+    payment_reference: shipment.paymentReference,
+    payment_status: shipment.paymentStatus,
+    notes: shipment.notes,
+  };
+}
+
+export const supabaseRepository = {
+  async shipments(): Promise<Shipment[]> {
+    const { data, error } = await client()
+      .from("shipments")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return ((data ?? []) as ShipmentRow[]).map(fromShipmentRow);
+  },
+
+  async saveShipment(
+    shipment: Shipment,
+    isUpdate: boolean,
+  ): Promise<Shipment> {
+    const request = client().from("shipments");
+    const result = isUpdate
+      ? await request
+          .update(toShipmentRow(shipment))
+          .eq("id", shipment.id)
+          .select("*")
+          .single()
+      : await request
+          .insert(toShipmentRow(shipment))
+          .select("*")
+          .single();
+
+    if (result.error) throw result.error;
+    return fromShipmentRow(result.data as ShipmentRow);
+  },
+
+  async deleteShipment(id: string): Promise<void> {
+    const { error } = await client().from("shipments").delete().eq("id", id);
+    if (error) throw error;
+  },
+
+  async trackingUpdates(): Promise<TrackingUpdate[]> {
+    const { data, error } = await client()
+      .from("tracking_updates")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return ((data ?? []) as TrackingUpdateRow[]).map((row) => ({
+      id: row.id,
+      shipmentId: row.shipment_id,
+      status: row.status,
+      location: row.location,
+      description: row.description,
+      timestamp: row.created_at,
+    }));
+  },
+
+  async saveTrackingUpdate(
+    shipmentId: string,
+    input: Pick<TrackingUpdate, "status" | "location" | "description">,
+  ): Promise<void> {
+    const { error } = await client().rpc("record_tracking_update", {
+      p_shipment_id: shipmentId,
+      p_status: input.status,
+      p_location: input.location,
+      p_description: input.description,
+    });
+
+    if (error) throw error;
+  },
+
+  async drafts(): Promise<EmailDraft[]> {
+    const { data, error } = await client()
+      .from("email_drafts")
+      .select("*")
+      .order("updated_at", { ascending: false });
+
+    if (error) throw error;
+    return ((data ?? []) as EmailDraftRow[]).map((row) => ({
+      id: row.id,
+      shipmentId: row.shipment_id,
+      tracking: row.tracking_reference,
+      recipient: row.recipient,
+      subject: row.subject,
+      body: row.body,
+      updated: row.updated_at,
+    }));
+  },
+
+  async saveDraft(draft: EmailDraft): Promise<EmailDraft> {
+    const { data, error } = await client()
+      .from("email_drafts")
+      .upsert(
+        {
+          id: draft.id,
+          shipment_id: draft.shipmentId,
+          tracking_reference: draft.tracking,
+          recipient: draft.recipient,
+          subject: draft.subject,
+          body: draft.body,
+        },
+        { onConflict: "id" },
+      )
+      .select("*")
+      .single();
+
+    if (error) throw error;
+    const row = data as EmailDraftRow;
+    return {
+      id: row.id,
+      shipmentId: row.shipment_id,
+      tracking: row.tracking_reference,
+      recipient: row.recipient,
+      subject: row.subject,
+      body: row.body,
+      updated: row.updated_at,
+    };
+  },
+
+  makeId(): string {
+    return crypto.randomUUID();
+  },
 };
