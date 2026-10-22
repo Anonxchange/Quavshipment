@@ -1,4 +1,5 @@
 import path from 'path';
+import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, type Plugin } from 'vite';
@@ -59,6 +60,8 @@ if (!basePath) {
   );
 }
 
+const projectRoot = path.dirname(fileURLToPath(import.meta.url));
+
 export default defineConfig({
   base: basePath,
   plugins: [
@@ -96,6 +99,12 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, 'dist/public'),
     emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        public: path.resolve(projectRoot, 'index.html'),
+        admin: path.resolve(projectRoot, 'admin/index.html'),
+      },
+    },
   },
   server: {
     port,

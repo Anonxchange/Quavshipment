@@ -1,7 +1,7 @@
 kind = "web"
 previewPath = "/"
 title = "Qelvaron Global Logistics"
-description = "A public-facing logistics website for Qelvaron Global Logistics, showcasing freight services and helping visitors prepare shipment inquiries."
+description = "Qelvaron Global Logistics public website and a demo operations dashboard for shipment management, email drafts, and printable waybills."
 version = "1.0.0"
 id = "artifacts/qelvaron-logistics"
 router = "path"
@@ -90,6 +90,14 @@ to = "/terms-and-conditions/index.html"
 [[services.production.rewrites]]
 from = "/terms-and-conditions/"
 to = "/terms-and-conditions/index.html"
+
+[[services.production.rewrites]]
+from = "/admin"
+to = "/admin/index.html"
+
+[[services.production.rewrites]]
+from = "/admin/"
+to = "/admin/index.html"
 
 [[services.production.rewrites]]
 from = "/*"

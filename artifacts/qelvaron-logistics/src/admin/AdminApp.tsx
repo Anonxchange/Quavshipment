@@ -1,0 +1,267 @@
+import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { AlertTriangle, ArrowDownToLine, ArrowLeft, Check, ClipboardList, FileText, LogOut, Mail, Menu, PackagePlus, Pencil, Plus, Printer, Search, Ship, Trash2, X } from "lucide-react";
+import { demoRepository, type EmailDraft, type Shipment, type ShipmentStatus } from "./repository";
+import { toast } from "sonner";
+
+type View = "overview" | "shipments" | "emails";
+const statuses:ShipmentStatus[]=["Booked","Picked up","In transit","Delivered","Exception"];
+const emptyShipment:Omit<Shipment,"id"|"tracking"|"created">={status:"Booked",mode:"Air",carrier:"",sender:"",senderEmail:"",senderPhone:"",originStreet:"",originCity:"",originRegion:"",originPostal:"",originCountry:"",recipient:"",recipientEmail:"",recipientPhone:"",destinationStreet:"",destinationCity:"",destinationRegion:"",destinationPostal:"",destinationCountry:"",cargo:"",packages:"1",weight:"",dimensions:"",pickup:"",estimated:"",total:"0.00",paid:"0.00",paymentMethod:"",paymentReference:"",paymentStatus:"Pending",notes:""};
+const asMoney=(val:string|number)=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Number(val)||0);
+const fullOrigin=(s:Shipment)=>[s.originStreet,s.originCity,s.originRegion,s.originPostal,s.originCountry].filter(Boolean).join(", ");
+const fullDestination=(s:Shipment)=>[s.destinationStreet,s.destinationCity,s.destinationRegion,s.destinationPostal,s.destinationCountry].filter(Boolean).join(", ");
+const niceDate=(d:string)=>d?new Date(`${d}T12:00:00`).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):"—";
+const statusClass=(s:string)=>s.toLowerCase().replaceAll(" ","-");
+
+function Field({label,name,value,required=false,type="text",placeholder=""}:{label:string;name:string;value?:string;required?:boolean;type?:string;placeholder?:string}) {
+  return <div className="form-field"><label htmlFor={name}>{label}{required?" *":""}</label><input id={name} name={name} type={type} defaultValue={value} required={required} placeholder={placeholder} data-testid={`input-${name}`} /></div>;
+}
+function AddressFields({prefix,title,data}:{prefix:"origin"|"destination";title:string;data?:Shipment}) {
+  const sender=prefix==="origin";
+  return <section className="form-section"><h3>{title}</h3><div className="form-grid">
+    <Field label={sender?"Sender name":"Recipient name"} name={sender?"sender":"recipient"} value={data?.[sender?"sender":"recipient"]} required />
+    <Field label="Email" name={sender?"senderEmail":"recipientEmail"} value={data?.[sender?"senderEmail":"recipientEmail"]} type="email" />
+    <Field label="Phone" name={sender?"senderPhone":"recipientPhone"} value={data?.[sender?"senderPhone":"recipientPhone"]} />
+    <Field label="Street address" name={sender?"originStreet":"destinationStreet"} value={data?.[sender?"originStreet":"destinationStreet"]} required />
+    <Field label="City" name={sender?"originCity":"destinationCity"} value={data?.[sender?"originCity":"destinationCity"]} required />
+    <Field label="State / province" name={sender?"originRegion":"destinationRegion"} value={data?.[sender?"originRegion":"destinationRegion"]} />
+    <Field label="Postal code" name={sender?"originPostal":"destinationPostal"} value={data?.[sender?"originPostal":"destinationPostal"]} />
+    <Field label="Country" name={sender?"originCountry":"destinationCountry"} value={data?.[sender?"originCountry":"destinationCountry"]} required />
+  </div></section>;
+}
+
+function ShipmentModal({shipment,onClose,onSave}:{shipment?:Shipment;onClose:()=>void;onSave:(s:Shipment)=>void}) {
+  const [error,setError]=useState("");
+  function submit(e:FormEvent<HTMLFormElement>){
+    e.preventDefault(); const fd=new FormData(e.currentTarget); const values=Object.fromEntries(fd.entries()) as Record<string,string>;
+    const clean=Object.fromEntries(Object.entries(values).map(([k,v])=>[k,v.trim()]));
+    if(!clean.sender||!clean.recipient||!clean.originCity||!clean.destinationCity){setError("Sender, recipient, and both city fields are required.");return;}
+    const now=new Date().toISOString().slice(0,10);
+    const paid=Number(clean.paid||0), total=Number(clean.total||0);
+    const record:Shipment={...emptyShipment,...clean,id:shipment?.id||demoRepository.makeId(),tracking:shipment?.tracking||`QGL-${now.slice(2).replaceAll("-","")}-${String(Math.floor(Math.random()*8999)+1000)}`,created:shipment?.created||now,status:clean.status as ShipmentStatus,paymentStatus:(paid>=total&&total>0?"Paid":paid>0?"Partial":clean.paymentStatus||"Pending") as Shipment["paymentStatus"]} as Shipment;
+    onSave(record);
+  }
+  return <div className="overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)onClose();}}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="shipment-modal-title">
+    <div className="modal-head"><h2 id="shipment-modal-title">{shipment?"Update shipment":"Create shipment"}</h2><button className="icon-button" type="button" onClick={onClose} aria-label="Close" data-testid="button-close-shipment"><X/></button></div>
+    <form onSubmit={submit}><div className="modal-body">
+      {error&&<div className="notice" role="alert"><AlertTriangle/>{error}</div>}
+      <section className="form-section"><h3>Shipment details</h3><div className="form-grid">
+        <div className="form-field"><label htmlFor="shipment-status">Status</label><select id="shipment-status" name="status" defaultValue={shipment?.status||"Booked"} className="field-control" data-testid="select-shipment-status">{statuses.map(s=><option key={s}>{s}</option>)}</select></div>
+        <div className="form-field"><label htmlFor="shipment-mode">Mode</label><select id="shipment-mode" name="mode" defaultValue={shipment?.mode||"Air"} className="field-control" data-testid="select-shipment-mode">{["Air","Road","Sea","Rail"].map(s=><option key={s}>{s}</option>)}</select></div>
+        <Field label="Carrier" name="carrier" value={shipment?.carrier} required/>
+        <Field label="Cargo description" name="cargo" value={shipment?.cargo} required/>
+        <Field label="Package count" name="packages" type="number" value={shipment?.packages||"1"} required/>
+        <Field label="Weight" name="weight" value={shipment?.weight} placeholder="e.g. 42 kg"/>
+        <Field label="Dimensions" name="dimensions" value={shipment?.dimensions} placeholder="e.g. 60 × 40 × 35 cm"/>
+        <Field label="Pickup date" name="pickup" type="date" value={shipment?.pickup}/>
+        <Field label="Estimated delivery" name="estimated" type="date" value={shipment?.estimated}/>
+      </div></section>
+      <AddressFields prefix="origin" title="Sender & full origin" data={shipment}/>
+      <AddressFields prefix="destination" title="Recipient & full destination" data={shipment}/>
+      <section className="form-section"><h3>Charges & payment</h3><div className="form-grid">
+        <Field label="Charge total (USD)" name="total" type="number" value={shipment?.total||"0.00"} required/>
+        <Field label="Amount paid (USD)" name="paid" type="number" value={shipment?.paid||"0.00"} required/>
+        <Field label="Payment method" name="paymentMethod" value={shipment?.paymentMethod}/>
+        <Field label="Payment reference" name="paymentReference" value={shipment?.paymentReference}/>
+      </div></section>
+      <section className="form-section"><h3>Operations notes</h3><div className="form-field"><label htmlFor="shipment-notes">Notes</label><textarea className="small" name="notes" id="shipment-notes" defaultValue={shipment?.notes} data-testid="input-shipment-notes"/></div></section>
+      <div className="modal-footer"><button className="button" type="button" onClick={onClose} data-testid="button-cancel-shipment">Cancel</button><button className="button button-primary" type="submit" data-testid="button-save-shipment"><Check size={15}/>{shipment?"Save changes":"Create shipment"}</button></div>
+    </div></form>
+  </div></div>;
+}
+
+function Detail({shipment,onEdit,onPrint}:{shipment:Shipment;onEdit:()=>void;onPrint:()=>void}) {
+  const balance=Math.max(0,Number(shipment.total)-Number(shipment.paid));
+  return <aside className="panel detail-card" data-testid={`panel-shipment-detail-${shipment.id}`}>
+    <div className="detail-head"><div><div className="detail-ref">{shipment.tracking}</div><span className={`status ${statusClass(shipment.status)}`}>{shipment.status}</span></div><div className="row-actions"><button className="icon-button" aria-label="Edit shipment" title="Edit" onClick={onEdit} data-testid={`button-edit-${shipment.id}`}><Pencil/></button><button className="icon-button" aria-label="Print shipment" title="Print record" onClick={onPrint} data-testid={`button-print-${shipment.id}`}><Printer/></button></div></div>
+    <div className="detail-section"><h3>Movement</h3><div className="detail-grid"><DetailItem label="Mode / carrier" value={`${shipment.mode} · ${shipment.carrier||"Unassigned"}`}/><DetailItem label="Cargo" value={shipment.cargo}/><DetailItem label="Packages / weight" value={`${shipment.packages} packages · ${shipment.weight||"—"}`}/><DetailItem label="Pickup / ETA" value={`${niceDate(shipment.pickup)} / ${niceDate(shipment.estimated)}`}/></div></div>
+    <div className="detail-section"><h3>Origin</h3><div className="detail-grid"><DetailItem label="Sender" value={shipment.sender}/><DetailItem label="Contact" value={`${shipment.senderEmail||"—"} · ${shipment.senderPhone||"—"}`}/><DetailItem label="Full location" value={fullOrigin(shipment)}/></div></div>
+    <div className="detail-section"><h3>Destination</h3><div className="detail-grid"><DetailItem label="Recipient" value={shipment.recipient}/><DetailItem label="Contact" value={`${shipment.recipientEmail||"—"} · ${shipment.recipientPhone||"—"}`}/><DetailItem label="Full location" value={fullDestination(shipment)}/></div></div>
+    <div className="detail-section"><h3>Payment</h3><div className="detail-grid"><DetailItem label="Total / paid" value={`${asMoney(shipment.total)} / ${asMoney(shipment.paid)}`}/><DetailItem label="Balance due" value={asMoney(balance)}/><DetailItem label="Method / reference" value={`${shipment.paymentMethod||"—"} / ${shipment.paymentReference||"—"}`}/><DetailItem label="Payment status" value={shipment.paymentStatus}/></div></div>
+  </aside>;
+}
+function DetailItem({label,value}:{label:string;value:string}) { return <div className="detail-item"><span>{label}</span><strong>{value}</strong></div>; }
+
+export default function AdminApp() {
+  const [authenticated,setAuthenticated]=useState(()=>sessionStorage.getItem("qelvaron-admin-demo-auth")==="1");
+  const [email,setEmail]=useState("admin@qelvaron.test"),[password,setPassword]=useState("qelvaron-demo"),[loginError,setLoginError]=useState("");
+  const [shipments,setShipments]=useState<Shipment[]>(()=>demoRepository.shipments());
+  const [drafts,setDrafts]=useState<EmailDraft[]>(()=>demoRepository.drafts());
+  const [view,setView]=useState<View>("overview"),[selectedId,setSelectedId]=useState<string|null>(null),[search,setSearch]=useState(""),[filter,setFilter]=useState("All statuses");
+  const [editing,setEditing]=useState<Shipment|undefined>(),[toast,setToast]=useState("");
+  const [draftTracking,setDraftTracking]=useState(""),[draftRecipient,setDraftRecipient]=useState(""),[draftSubject,setDraftSubject]=useState(""),[draftBody,setDraftBody]=useState("");
+  const selected=shipments.find(s=>s.id===selectedId)||null;
+  const visible=useMemo(()=>shipments.filter(s=>{
+    const term=search.trim().toLowerCase();
+    const matches=!term||[s.tracking,s.sender,s.recipient,s.originCity,s.destinationCity,s.carrier].some(v=>v.toLowerCase().includes(term));
+    return matches&&(filter==="All statuses"||s.status===filter);
+  }).sort((a,b)=>b.created.localeCompare(a.created)),[shipments,search,filter]);
+  const balance=shipments.reduce((sum,s)=>sum+Math.max(0,Number(s.total)-Number(s.paid)),0);
+  const inMotion=shipments.filter(s=>s.status==="In transit"||s.status==="Picked up").length;
+  const setSavedShipments=(list:Shipment[])=>{setShipments(list);demoRepository.saveShipments(list);};
+  const notify=(message:string)=>{setToast(message);window.setTimeout(()=>setToast(""),2600);};
+  function login(e:FormEvent){e.preventDefault();if(email==="admin@qelvaron.test"&&password==="qelvaron-demo"){sessionStorage.setItem("qelvaron-admin-demo-auth","1");setAuthenticated(true);setLoginError("");}else setLoginError("Those demo credentials did not match. Try the preview credentials below.");}
+  function logout(){sessionStorage.removeItem("qelvaron-admin-demo-auth");setAuthenticated(false);}
+  function saveShipment(record:Shipment){const updated=shipments.some(s=>s.id===record.id)?shipments.map(s=>s.id===record.id?record:s):[record,...shipments];setSavedShipments(updated);setSelectedId(record.id);setEditing(undefined);setView("shipments");notify("Shipment saved to this browser.");}
+  function deleteShipment(s:Shipment){if(window.confirm(`Delete ${s.tracking} from this browser's demo data?`)){setSavedShipments(shipments.filter(x=>x.id!==s.id));if(selectedId===s.id)setSelectedId(null);notify("Shipment removed.");}}
+  function chooseShipment(s:Shipment){setSelectedId(s.id);setView("shipments");}
+  function prepareDraft(s?:Shipment){setDraftTracking(s?.tracking||"");setDraftRecipient(s?.recipientEmail||"");setDraftSubject(s?`Shipment update · ${s.tracking}`:"");setDraftBody(s?`Hello ${s.recipient},\n\nHere is a quick update about your shipment ${s.tracking}.\n\nCurrent status: ${s.status}\nEstimated delivery: ${niceDate(s.estimated)}\n\nPlease contact your logistics representative if you have questions.\n\nQelvaron Global Logistics`:"");setView("emails");}
+  function saveDraft(e:FormEvent){e.preventDefault();const match=shipments.find(s=>s.tracking===draftTracking);const draft:EmailDraft={id:demoRepository.makeId(),tracking:draftTracking,recipient:draftRecipient,subject:draftSubject,body:draftBody,updated:new Date().toISOString()};const next=[draft,...drafts];setDrafts(next);demoRepository.saveDrafts(next);notify(`Unsent draft saved${match?` for ${match.tracking}`:""}.`);}
+  function printShipment(s:Shipment){setSelectedId(s.id);window.setTimeout(()=>window.print(),30);}
+  function nav(to:View){setView(to);}
+
+  if(!authenticated)return <div className="qelvaron-admin">
+    <SiteHeader/>
+    <main className="padding-global admin-login-main">
+      <div className="container-large">
+        <section className="padding-section-large admin-login-layout">
+          <div className="admin-login-intro">
+            <p className="text-size-small admin-kicker">Miami / Operations desk</p>
+            <h1 className="heading-style-h1 display-three admin-display-title">Shipment operations</h1>
+            <p className="admin-lede">A local preview workspace for Qelvaron’s shipment records, customer correspondence and waybills.</p>
+          </div>
+          <form className="admin-login-card" onSubmit={login}>
+            <p className="text-size-small admin-kicker">Preview access</p>
+            <h2 className="heading-style-h2 admin-card-title">Sign in to the desk</h2>
+            <p className="admin-card-copy">Use the demo credentials to explore this local preview. This is not production authentication.</p>
+            {loginError&&<div className="notice" role="alert" data-testid="status-login-error"><AlertTriangle/>{loginError}</div>}
+            <div className="admin-form-stack">
+              <div className="admin-field"><label className="contact-field-label" htmlFor="login-email">Email address</label><input className="contact-text-field" id="login-email" type="email" value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="username" data-testid="input-login-email"/></div>
+              <div className="admin-field"><label className="contact-field-label" htmlFor="login-password">Password</label><input className="contact-text-field" id="login-password" type="password" value={password} onChange={e=>setPassword(e.target.value)} required autoComplete="current-password" data-testid="input-login-password"/></div>
+            </div>
+            <button className="primary-button w-variant-13a7ccd8-9ebe-d094-481f-e24b4fc8f662 admin-submit" type="submit" data-testid="button-demo-login">Enter operations desk <ArrowLeft size={15} style={{transform:"rotate(180deg)"}}/></button>
+            <div className="credentials"><span className="credentials-label">Demo credentials</span><b>admin@qelvaron.test</b><b>qelvaron-demo</b></div>
+            <div className="login-warning"><strong>Preview only · insecure demo login.</strong> Credentials are hard-coded in the frontend. Replace with Supabase Auth before any production use.</div>
+          </form>
+          <p className="admin-login-foot">Private operations preview / No live shipment, payment or email services are connected.</p>
+        </section>
+      </div>
+    </main>
+  </div>;
+
+  return <>
+    <div className="qelvaron-admin">
+      <SiteHeader/>
+      <div className="admin-nav-band">
+        <div className="container-large admin-nav-row">
+          <nav className="admin-section-nav" aria-label="Operations navigation">
+            <AdminNavButton active={view==="overview"} label="Overview" onClick={()=>nav("overview")} testid="nav-overview"/>
+            <span className="nav-slash">/</span>
+            <AdminNavButton active={view==="shipments"} label="Shipments" onClick={()=>nav("shipments")} testid="nav-shipments" count={shipments.length}/>
+            <span className="nav-slash">/</span>
+            <AdminNavButton active={view==="emails"} label="Email drafts" onClick={()=>nav("emails")} testid="nav-email-drafts" count={drafts.length}/>
+          </nav>
+          <div className="admin-nav-actions"><span className="admin-preview-label">Preview workspace</span><button className="nav-link admin-signout" onClick={logout} data-testid="button-logout"><LogOut size={14}/> Sign out</button></div>
+        </div>
+      </div>
+      <main className="padding-global admin-main">
+        <div className="container-large">
+          <div className="admin-page-topline"><span>Qelvaron Global Logistics / {view==="overview"?"Operations":view==="shipments"?"Shipment register":"Correspondence"}</span><span>{new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})}</span></div>
+          <div className="admin-content">
+          {view==="overview"&&<Overview shipments={shipments} balance={balance} inMotion={inMotion} onViewAll={()=>nav("shipments")} onCreate={()=>setEditing({...emptyShipment,id:"",tracking:"",created:""})} onSelect={chooseShipment}/>}
+          {view==="shipments"&&<section><div className="page-head"><div><p className="text-size-small admin-kicker">Shipment register</p><h1 className="heading-style-h1 admin-page-title">Shipments</h1><p className="admin-page-subtitle">Create, update and review shipment records. Data shown here is synthetic demo data.</p></div><button className="button button-primary" onClick={()=>setEditing({...emptyShipment,id:"",tracking:"",created:""})} data-testid="button-create-shipment"><PackagePlus size={16}/> Create shipment</button></div>
+            <div className="list-layout"><div className="panel"><div className="toolbar"><div className="searchbox"><Search/><input className="field-control" placeholder="Search tracking, name, city, carrier" value={search} onChange={e=>setSearch(e.target.value)} aria-label="Search shipments" data-testid="input-search-shipments"/></div><select className="field-control" value={filter} onChange={e=>setFilter(e.target.value)} aria-label="Filter by status" data-testid="select-filter-status"><option>All statuses</option>{statuses.map(s=><option key={s}>{s}</option>)}</select></div>
+              <ShipmentTable shipments={visible} selectedId={selectedId} onSelect={chooseShipment} onEdit={s=>setEditing(s)} onDelete={deleteShipment} onPrint={printShipment}/>
+            </div>{selected?<Detail shipment={selected} onEdit={()=>setEditing(selected)} onPrint={()=>printShipment(selected)}/>:<div className="panel empty-state"><div className="empty-mark"><ClipboardList/></div><h3>Select a shipment</h3><p>Choose a row to inspect full contacts, locations and payment details.</p></div>}</div>
+          </section>}
+          {view==="emails"&&<section><div className="page-head"><div><p className="text-size-small admin-kicker">Customer correspondence</p><h1 className="heading-style-h1 admin-page-title">Email drafts</h1><p className="admin-page-subtitle">Prepare shipment updates and save them for review. Sending is disabled.</p></div></div>
+            <div className="notice" style={{marginBottom:15}}><AlertTriangle/><span><strong>Real email sending is disabled.</strong> Drafts are saved in this browser only. Connect Supabase and Resend before enabling delivery; no message is sent from this preview.</span></div>
+            <div className="email-layout"><form className="panel form-panel" onSubmit={saveDraft}><h2 className="form-title">Compose an unsent message</h2><div className="form-grid">
+              <div className="form-field"><label htmlFor="draft-shipment">Shipment</label><select id="draft-shipment" className="field-control" value={draftTracking} onChange={e=>{const t=e.target.value;setDraftTracking(t);const s=shipments.find(x=>x.tracking===t);if(s){setDraftRecipient(s.recipientEmail);setDraftSubject(`Shipment update · ${s.tracking}`);setDraftBody(`Hello ${s.recipient},\n\nHere is a quick update about your shipment ${s.tracking}.\n\nCurrent status: ${s.status}\nEstimated delivery: ${niceDate(s.estimated)}\n\nPlease contact your logistics representative if you have questions.\n\nQelvaron Global Logistics`);}}} data-testid="select-draft-shipment"><option value="">Choose shipment (optional)</option>{shipments.map(s=><option key={s.id} value={s.tracking}>{s.tracking} · {s.recipient}</option>)}</select></div>
+              <div className="form-field"><label htmlFor="draft-recipient">Recipient email</label><input id="draft-recipient" type="email" value={draftRecipient} onChange={e=>setDraftRecipient(e.target.value)} required data-testid="input-draft-recipient"/></div>
+              <div className="form-field full"><label htmlFor="draft-subject">Subject</label><input id="draft-subject" value={draftSubject} onChange={e=>setDraftSubject(e.target.value)} required data-testid="input-draft-subject"/></div>
+              <div className="form-field full"><label htmlFor="draft-body">Message</label><textarea id="draft-body" value={draftBody} onChange={e=>setDraftBody(e.target.value)} required data-testid="input-draft-body"/></div>
+            </div><div className="form-footer"><span style={{fontSize:10,color:"#85909a"}}>Saved drafts remain unsent.</span><button className="button button-primary" type="submit" data-testid="button-save-draft"><Check size={15}/> Save draft</button></div></form>
+              <div className="panel"><div className="panel-head"><div><h2 className="panel-title">Saved drafts</h2><p className="panel-note">{drafts.length} unsent {drafts.length===1?"draft":"drafts"}</p></div><FileText size={16} color="#79848f"/></div>
+                {drafts.length?<div className="draft-list">{drafts.map(d=><button key={d.id} className="draft-item" style={{width:"100%",background:"white",textAlign:"left",cursor:"pointer"}} onClick={()=>{setDraftTracking(d.tracking);setDraftRecipient(d.recipient);setDraftSubject(d.subject);setDraftBody(d.body);}} data-testid={`draft-item-${d.id}`}><strong>{d.subject||"(No subject)"}</strong><span>{d.recipient} · {d.tracking||"No shipment"} · Unsent</span></button>)}</div>:<div className="empty-state" style={{padding:"30px 16px"}}><div className="empty-mark"><Mail/></div><h3>No saved drafts</h3><p>Write a shipment update and save it here for review.</p></div>}
+              </div></div>
+          </section>}
+        </main>
+          </div>
+        </div>
+    </div>
+    {editing&&<ShipmentModal shipment={editing.id?editing:undefined} onClose={()=>setEditing(undefined)} onSave={saveShipment}/>}
+    {toast&&<div className="toast" role="status" data-testid="status-toast">{toast}</div>}
+    {selected&&<PrintSheet shipment={selected}/>}
+  </>;
+}
+
+function SiteHeader(){
+  const [menuOpen,setMenuOpen]=useState(false);
+  const links=[["Home","/"],["Services","/services/"],["About Us","/about/"],["Contact Us","/contact/"],["How It Works","/how-it-works/"],["Tracking","/tracking/"]];
+  return <header className="qelvaron-site-header">
+    <div data-wf--navbar--variant="secondary" data-animation="default" data-collapse="medium" role="banner" className="navbar w-variant-b70c6a90-d637-7a16-8a9b-9a8545e8ba2c w-nav">
+      <div className="container-large nav">
+        <a href="/" className="brand-link w-inline-block" aria-label="Qelvaron Global Logistics home">
+          <img loading="lazy" src="/qelvaron-logo-light.svg" alt="Qelvaron Global Logistics" className="brand-logo base w-variant-b70c6a90-d637-7a16-8a9b-9a8545e8ba2c"/>
+          <img loading="lazy" src="/qelvaron-logo-dark.svg" alt="Qelvaron Global Logistics" className="brand-logo secondary w-variant-b70c6a90-d637-7a16-8a9b-9a8545e8ba2c"/>
+        </a>
+        <nav role="navigation" aria-label="Qelvaron public navigation" className={`nav-menu w-nav-menu ${menuOpen?"admin-nav-open":""}`}>
+          {links.map(([label,href],index)=><span className="site-nav-pair" key={href}>
+            {index>0&&<span className="nav-slash w-variant-b70c6a90-d637-7a16-8a9b-9a8545e8ba2c">/</span>}
+            <a nav-link="" href={href} className="nav-link w-variant-b70c6a90-d637-7a16-8a9b-9a8545e8ba2c"><span>{label}</span></a>
+          </span>)}
+        </nav>
+        <div className="nav-right-content">
+          <button type="button" className="menu w-nav-button admin-menu-toggle" aria-label={menuOpen?"Close navigation":"Open navigation"} aria-expanded={menuOpen} onClick={()=>setMenuOpen(!menuOpen)} data-testid="button-site-menu">{menuOpen?<X/>:<Menu/>}</button>
+          <div className="nav-buttons-wrap">
+            <a href="/contact/" className="primary-button w-variant-13a7ccd8-9ebe-d094-481f-e24b4fc8f662 w-inline-block">
+              <div className="primary-button-text"><span>Get Quote</span></div>
+              <div className="button-arrow-box"><svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 16 12" fill="none" className="button-arrow _01"><path d="M14 5.53023L0 5.53027M9.00002 0.530273L14 5.53023L9.00006 10.5303" stroke="currentColor" strokeWidth="1.5"/></svg></div>
+              <div className="primary-hover-bg"/>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>;
+}
+function AdminNavButton({active,label,onClick,testid,count}:{active:boolean;label:string;onClick:()=>void;testid:string;count?:number}){
+  return <button type="button" className={`nav-link admin-tab ${active?"w--current":""}`} onClick={onClick} aria-current={active?"page":undefined} data-testid={testid}><span>{label}</span>{count!==undefined&&<span className="admin-tab-count">{count}</span>}</button>;
+}
+function Overview({shipments,balance,inMotion,onViewAll,onCreate,onSelect}:{shipments:Shipment[];balance:number;inMotion:number;onViewAll:()=>void;onCreate:()=>void;onSelect:(s:Shipment)=>void}){
+  const booked=shipments.filter(s=>s.status==="Booked").length;
+  return <section><div className="page-head"><div><p className="text-size-small admin-kicker">Operations snapshot</p><h1 className="heading-style-h1 admin-page-title">Good day. Here’s the desk.</h1><p className="admin-page-subtitle">A current view of your shipment activity and outstanding balances.</p></div><button className="button button-primary" onClick={onCreate} data-testid="button-overview-create"><Plus size={15}/> New shipment</button></div>
+    <div className="notice" style={{marginBottom:18}}><AlertTriangle/><span><strong>Preview workspace.</strong> All records below are synthetic sample data held in this browser. No live shipment, payment or email service is connected.</span></div>
+    <div className="metric-grid">
+      <Metric label="Total shipments" value={String(shipments.length).padStart(2,"0")} foot="Across all statuses"/>
+      <Metric label="In motion" value={String(inMotion).padStart(2,"0")} foot="Picked up or in transit"/>
+      <Metric label="Awaiting pickup" value={String(booked).padStart(2,"0")} foot="Booked shipments"/>
+      <Metric label="Balance outstanding" value={asMoney(balance)} foot="Calculated from shipment charges"/>
+    </div>
+    <div className="panel"><div className="panel-head"><div><h2 className="panel-title">Recent shipments</h2><p className="panel-note">Latest activity across all recorded shipments</p></div><button className="button button-small" onClick={onViewAll} data-testid="button-view-all-shipments">View all <ArrowDownToLine size={14}/></button></div><ShipmentTable shipments={[...shipments].sort((a,b)=>b.created.localeCompare(a.created)).slice(0,5)} onSelect={onSelect}/></div>
+    <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(240px,330px)",gap:14,marginTop:15}} className="overview-bottom">
+      <div className="panel" style={{padding:18}}><p className="eyebrow">Desk note</p><h2 style={{fontSize:16,margin:"0 0 7px"}}>Keep the next handoff clear.</h2><p style={{fontSize:11,lineHeight:1.6,color:"#75808a",margin:0}}>Each record holds the shipment route, people, cargo, dates and payment details together for quick follow-up.</p></div>
+      <div className="panel" style={{padding:18}}><p className="eyebrow">Quick action</p><button className="button button-dark" style={{width:"100%"}} onClick={onCreate} data-testid="button-quick-create"><PackagePlus size={15}/> Record a shipment</button><p style={{fontSize:10,lineHeight:1.5,color:"#7c8791",margin:"9px 0 0"}}>Creates a locally stored demo record with a unique reference.</p></div>
+    </div>
+  </section>;
+}
+function Metric({label,value,foot}:{label:string;value:string;foot:string}){return <article className="metric-card"><div className="metric-label">{label}</div><div className="metric-value" data-testid={`metric-${label.toLowerCase().replaceAll(" ","-")}`}>{value}</div><div className="metric-foot">{foot}</div></article>}
+function ShipmentTable({shipments,selectedId,onSelect,onEdit,onDelete,onPrint}:{shipments:Shipment[];selectedId?:string|null;onSelect:(s:Shipment)=>void;onEdit?:(s:Shipment)=>void;onDelete?:(s:Shipment)=>void;onPrint?:(s:Shipment)=>void}){
+  if(!shipments.length)return <div className="empty-state" data-testid="empty-shipments"><div className="empty-mark"><Ship/></div><h3>No shipments match</h3><p>Try changing the search or status filter, or create a new shipment.</p></div>;
+  return <div className="table-wrap"><table><thead><tr><th>Tracking reference</th><th>Recipient / destination</th><th>Created</th><th>Mode</th><th>Status</th><th>Balance due</th><th>Actions</th></tr></thead><tbody>{shipments.map(s=><tr key={s.id} onClick={()=>onSelect(s)} style={{background:selectedId===s.id?"#fff8f4":undefined,cursor:"pointer"}} data-testid={`row-shipment-${s.id}`}>
+    <td data-label="Tracking"><span className="track">{s.tracking}</span><span className="cell-sub">{s.sender}</span></td>
+    <td data-label="Destination">{s.recipient}<span className="cell-sub">{s.destinationCity}, {s.destinationCountry}</span></td>
+    <td data-label="Created">{niceDate(s.created)}</td><td data-label="Mode">{s.mode}</td>
+    <td data-label="Status"><span className={`status ${statusClass(s.status)}`}>{s.status}</span></td><td data-label="Balance">{asMoney(Math.max(0,Number(s.total)-Number(s.paid)))}</td>
+    <td data-label="Actions" onClick={e=>e.stopPropagation()}><div className="row-actions">
+      {onEdit&&<button className="icon-button" onClick={()=>onEdit(s)} aria-label={`Edit ${s.tracking}`} title="Edit shipment" data-testid={`button-row-edit-${s.id}`}><Pencil/></button>}
+      {onPrint&&<button className="icon-button" onClick={()=>onPrint(s)} aria-label={`Print ${s.tracking}`} title="Print record" data-testid={`button-row-print-${s.id}`}><Printer/></button>}
+      {onDelete&&<button className="icon-button" onClick={()=>onDelete(s)} aria-label={`Delete ${s.tracking}`} title="Delete shipment" data-testid={`button-row-delete-${s.id}`}><Trash2/></button>}
+    </div></td>
+  </tr>)}</tbody></table></div>;
+}
+function PrintSheet({shipment:s}:{shipment:Shipment}){
+  const bal=Math.max(0,Number(s.total)-Number(s.paid));
+  return <article className="print-sheet" data-testid="print-shipment-record">
+    <div className="print-header"><img src="/qelvaron-logo-dark.svg" alt="Qelvaron Global Logistics"/><div className="print-title"><h1>Shipment waybill</h1><p>Operations record · Preview copy</p></div></div>
+    <div className="print-ref"><span>Tracking reference</span><strong>{s.tracking}</strong><span className={`status ${statusClass(s.status)}`}>{s.status}</span></div>
+    <div className="print-columns">
+      <PrintBlock title="Sender / Origin"><p><b>{s.sender}</b></p><p>{s.senderEmail} · {s.senderPhone}</p><p>{fullOrigin(s)}</p></PrintBlock>
+      <PrintBlock title="Recipient / Destination"><p><b>{s.recipient}</b></p><p>{s.recipientEmail} · {s.recipientPhone}</p><p>{fullDestination(s)}</p></PrintBlock>
+      <PrintBlock title="Shipment details"><p><b>Cargo:</b> {s.cargo}</p><p><b>Mode / carrier:</b> {s.mode} / {s.carrier}</p><p><b>Packages:</b> {s.packages} &nbsp; <b>Weight:</b> {s.weight}</p><p><b>Dimensions:</b> {s.dimensions}</p><p><b>Pickup:</b> {niceDate(s.pickup)} &nbsp; <b>Estimated delivery:</b> {niceDate(s.estimated)}</p></PrintBlock>
+      <PrintBlock title="Payment"><div className="print-payment"><div>Charge total<b>{asMoney(s.total)}</b></div><div>Amount paid<b>{asMoney(s.paid)}</b></div><div>Balance due<b>{asMoney(bal)}</b></div><div>Payment status<b>{s.paymentStatus}</b></div></div><p style={{marginTop:9}}><b>Method:</b> {s.paymentMethod||"—"} &nbsp; <b>Reference:</b> {s.paymentReference||"—"}</p></PrintBlock>
+      {s.notes&&<PrintBlock title="Operations notes" full><p>{s.notes}</p></PrintBlock>}
+    </div><div className="print-footer">Record created {niceDate(s.created)} · This document contains only the shipment locations and contact details entered into this record.</div>
+  </article>;
+}
+function PrintBlock({title,children,full=false}:{title:string;children:ReactNode;full?:boolean}){return <section className={`print-block ${full?"full":""}`}><h2>{title}</h2>{children}</section>}
