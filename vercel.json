@@ -36,8 +36,13 @@
     },
     {
       "source": "/tracking",
-      "destination": "/#tracking",
-      "permanent": false
+      "destination": "/tracking/",
+      "permanent": true
+    },
+    {
+      "source": "/admin",
+      "destination": "/admin/",
+      "permanent": true
     }
   ]
 }
