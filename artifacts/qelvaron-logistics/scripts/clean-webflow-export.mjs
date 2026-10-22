@@ -10,7 +10,7 @@ const pagePaths = [
   'public/how-it-works/index.html',
   'public/blog/index.html',
   'public/career/index.html',
-  'public/tracking/index.html',
+  'tracking/index.html',
   'public/privacy-policy/index.html',
   'public/terms-and-conditions/index.html',
 ];
@@ -371,8 +371,13 @@ function normalizeNavigation(html, pagePath) {
     throw new Error(`Could not read the main navigation in ${pagePath}`);
   }
 
+  const pathParts = pagePath.split('/');
   const currentPage =
-    pagePath === 'index.html' ? 'home' : pagePath.split('/')[1] ?? '';
+    pagePath === 'index.html'
+      ? 'home'
+      : pathParts[0] === 'public'
+        ? pathParts[1] ?? ''
+        : pathParts[0] ?? '';
   const links = navigationItems
     .map(({ href, label, page }, index) => {
       const current = page === currentPage ? ' aria-current="page"' : '';
@@ -630,7 +635,7 @@ function updatePageTitle(html, pagePath) {
       title: 'Career | Qelvaron Global Logistics',
       description: 'Learn about careers and opportunities with Qelvaron Global Logistics.',
     },
-    'public/tracking/index.html': {
+    'tracking/index.html': {
       title: 'Shipment Tracking | Qelvaron Global Logistics',
       description: 'Shipment tracking information and support from Qelvaron Global Logistics.',
     },
