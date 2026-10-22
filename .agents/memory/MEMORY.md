@@ -1,0 +1,2 @@
+- [Qelvaron business details](qelvaron-business-details.md) — Miami-based logistics company; street address, email, and phone remain unconfirmed.
+- [Qelvaron site direction](qelvaron-site-direction.md) — preserve the Webflow theme; use six local navigation links, remove the cart, and support Vercel.

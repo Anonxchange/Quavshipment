@@ -1,0 +1,100 @@
+kind = "web"
+previewPath = "/"
+title = "Qelvaron Global Logistics"
+description = "A public-facing logistics website for Qelvaron Global Logistics, showcasing services and helping visitors prepare shipment inquiries."
+version = "1.0.0"
+id = "artifacts/qelvaron-logistics"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 26262
+
+[services.development]
+run = "pnpm --filter @workspace/qelvaron-logistics run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/qelvaron-logistics", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/qelvaron-logistics/dist/public"
+
+[[services.production.rewrites]]
+from = "/about"
+to = "/about/index.html"
+
+[[services.production.rewrites]]
+from = "/about/"
+to = "/about/index.html"
+
+[[services.production.rewrites]]
+from = "/services"
+to = "/services/index.html"
+
+[[services.production.rewrites]]
+from = "/services/"
+to = "/services/index.html"
+
+[[services.production.rewrites]]
+from = "/contact"
+to = "/contact/index.html"
+
+[[services.production.rewrites]]
+from = "/contact/"
+to = "/contact/index.html"
+
+[[services.production.rewrites]]
+from = "/how-it-works"
+to = "/how-it-works/index.html"
+
+[[services.production.rewrites]]
+from = "/how-it-works/"
+to = "/how-it-works/index.html"
+
+[[services.production.rewrites]]
+from = "/blog"
+to = "/blog/index.html"
+
+[[services.production.rewrites]]
+from = "/blog/"
+to = "/blog/index.html"
+
+[[services.production.rewrites]]
+from = "/career"
+to = "/career/index.html"
+
+[[services.production.rewrites]]
+from = "/career/"
+to = "/career/index.html"
+
+[[services.production.rewrites]]
+from = "/tracking"
+to = "/tracking/index.html"
+
+[[services.production.rewrites]]
+from = "/tracking/"
+to = "/tracking/index.html"
+
+[[services.production.rewrites]]
+from = "/privacy-policy"
+to = "/privacy-policy/index.html"
+
+[[services.production.rewrites]]
+from = "/privacy-policy/"
+to = "/privacy-policy/index.html"
+
+[[services.production.rewrites]]
+from = "/terms-and-conditions"
+to = "/terms-and-conditions/index.html"
+
+[[services.production.rewrites]]
+from = "/terms-and-conditions/"
+to = "/terms-and-conditions/index.html"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "26262"
+BASE_PATH = "/"

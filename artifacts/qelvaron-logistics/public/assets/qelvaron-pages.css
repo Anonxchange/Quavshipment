@@ -1,0 +1,803 @@
+.qelvaron-document-page {
+  min-height: 100vh;
+  color: #17202d;
+  background: #f5f6f8;
+  font-family: Inter, Arial, sans-serif;
+}
+
+.qelvaron-page-header {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 28px;
+  padding: 18px clamp(20px, 4vw, 64px);
+  background: #fff;
+  border-bottom: 1px solid #e7e9ed;
+}
+
+.qelvaron-page-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 190px;
+  color: #111827;
+  text-decoration: none;
+}
+
+.qelvaron-page-brand-mark {
+  display: grid;
+  width: 35px;
+  height: 35px;
+  place-items: center;
+  border-radius: 5px;
+  color: #121212;
+  background: #f15a24;
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.qelvaron-page-brand-name {
+  display: grid;
+  gap: 3px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  line-height: 1;
+}
+
+.qelvaron-page-brand-name small {
+  color: #657080;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+.qelvaron-page-nav {
+  position: static !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.qelvaron-page-nav .nav-link {
+  padding: 8px 1px;
+  color: #283140;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.qelvaron-page-nav .nav-link:hover,
+.qelvaron-page-nav .nav-link[aria-current="page"] {
+  color: #e84f1c;
+}
+
+.qelvaron-page-nav .nav-slash {
+  color: #c4c9d0;
+  font-size: 12px;
+}
+
+.qelvaron-page-contact {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px;
+  border-radius: 24px;
+  color: #151515;
+  background: #f5f5f5;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.qelvaron-page-contact:hover {
+  color: #fff;
+  background: #f15a24;
+}
+
+.qelvaron-sr-only {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.qelvaron-mobile-nav-search {
+  display: none;
+  width: 100%;
+}
+
+.qelvaron-tracking-search-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.qelvaron-search-input-wrap {
+  display: flex;
+  min-width: 0;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 13px;
+  border: 1px solid #d5d9df;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.qelvaron-search-icon {
+  flex: 0 0 auto;
+  color: #747e8b;
+  font-size: 23px;
+  line-height: 1;
+}
+
+.qelvaron-tracking-search-form input {
+  width: 100%;
+  min-width: 0;
+  height: 42px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  color: #17202d;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+}
+
+.qelvaron-tracking-search-form input::placeholder {
+  color: #818a96;
+  opacity: 1;
+}
+
+.qelvaron-tracking-search-form input:focus-visible {
+  outline: 2px solid #f15a24;
+  outline-offset: 3px;
+}
+
+.qelvaron-tracking-search-form button {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 6px;
+  color: #171717;
+  background: #f15a24;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.qelvaron-tracking-search-form button:hover {
+  background: #ff7440;
+}
+
+.qelvaron-tracking-search-status {
+  min-height: 1em;
+  margin: 6px 0 0;
+  color: #657080;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.qelvaron-mobile-nav-search .qelvaron-tracking-search-form {
+  padding: 4px;
+  border: 1px solid #d5d9df;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.qelvaron-mobile-nav-search .qelvaron-search-input-wrap {
+  min-height: 39px;
+  gap: 8px;
+  padding: 0 7px;
+  border: 0;
+}
+
+.qelvaron-mobile-nav-search .qelvaron-tracking-search-form input {
+  height: 37px;
+  font-size: 14px;
+}
+
+.qelvaron-mobile-nav-search .qelvaron-tracking-search-form button {
+  min-height: 38px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.qelvaron-mobile-nav-quote {
+  display: none;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 12px;
+  border-radius: 6px;
+  color: #171717 !important;
+  background: #f15a24;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.qelvaron-mobile-nav-quote:hover {
+  background: #ff7440;
+}
+
+.qelvaron-home-tracking-search {
+  width: min(100%, 520px);
+  margin-top: 12px;
+}
+
+.qelvaron-page-tracking-search {
+  width: min(100%, 620px);
+  margin-top: 20px;
+}
+
+.qelvaron-home-tracking-search .qelvaron-tracking-search-form {
+  padding: 6px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 12px 30px rgb(0 0 0 / 18%);
+}
+
+.qelvaron-home-tracking-search .qelvaron-search-input-wrap {
+  min-height: 48px;
+  border-color: transparent;
+}
+
+.qelvaron-home-tracking-search .qelvaron-tracking-search-form input {
+  height: 46px;
+  font-size: 15px;
+}
+
+.qelvaron-home-tracking-search .qelvaron-tracking-search-form button {
+  min-height: 48px;
+  padding: 0 19px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.qelvaron-home-tracking-search .qelvaron-tracking-search-status {
+  color: #fff;
+}
+
+.qelvaron-page-mobile-menu {
+  display: none;
+}
+
+.qelvaron-page-mobile-menu summary {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 15px;
+  border: 1px solid #e4e7eb;
+  border-radius: 22px;
+  color: #1d2731;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  list-style: none;
+}
+
+.qelvaron-page-mobile-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.qelvaron-page-mobile-menu summary::after {
+  width: 7px;
+  height: 7px;
+  margin-left: 10px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  content: "";
+  transform: rotate(45deg) translateY(-2px);
+}
+
+.qelvaron-page-mobile-menu[open] summary::after {
+  transform: rotate(225deg) translate(-1px, -1px);
+}
+
+.qelvaron-page-mobile-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 5;
+  display: grid;
+  width: min(82vw, 260px);
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid #e4e7eb;
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgb(16 25 35 / 14%);
+}
+
+.qelvaron-page-mobile-panel a {
+  display: block;
+  padding: 12px 13px;
+  border-radius: 5px;
+  color: #263241;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.qelvaron-page-mobile-panel a:hover,
+.qelvaron-page-mobile-panel a[aria-current="page"] {
+  color: #cf4619;
+  background: #fff3ee;
+}
+
+.qelvaron-page-main {
+  width: min(100% - 40px, 1160px);
+  margin: 0 auto;
+}
+
+.qelvaron-page-footer {
+  display: flex;
+  min-height: 100px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 72px;
+  padding: 22px clamp(20px, 4vw, 64px);
+  color: #d7dce3;
+  background: #101923;
+  font-size: 12px;
+}
+
+.qelvaron-page-footer p {
+  margin: 0;
+}
+
+.qelvaron-page-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+}
+
+.qelvaron-page-footer .footer-page-link {
+  color: #f4f5f7;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.qelvaron-page-footer .footer-page-link:hover {
+  color: #ff7848;
+}
+
+.qelvaron-tracking-hero {
+  position: relative;
+  overflow: hidden;
+  margin: 38px 0 26px;
+  padding: clamp(34px, 7vw, 78px);
+  border-radius: 12px;
+  color: #fff;
+  background:
+    radial-gradient(ellipse at 88% 10%, rgb(241 90 36 / 24%), transparent 38%),
+    linear-gradient(120deg, #101923 0%, #1e2b39 100%);
+}
+
+.qelvaron-tracking-hero::after {
+  position: absolute;
+  right: -50px;
+  bottom: -175px;
+  width: 360px;
+  height: 360px;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 50%;
+  box-shadow: 0 0 0 38px rgb(255 255 255 / 3%), 0 0 0 76px rgb(255 255 255 / 2%);
+  content: "";
+}
+
+.qelvaron-page-eyebrow {
+  margin: 0 0 14px;
+  color: #ff8a5f;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.qelvaron-tracking-hero h1 {
+  max-width: 740px;
+  margin: 0;
+  color: #fff;
+  font-size: clamp(40px, 6vw, 68px);
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+}
+
+.qelvaron-tracking-hero > p:last-child {
+  max-width: 690px;
+  margin: 22px 0 0;
+  color: #d8dfe7;
+  font-size: clamp(16px, 2vw, 19px);
+  line-height: 1.7;
+}
+
+.qelvaron-tracking-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 28px;
+  padding: clamp(24px, 4vw, 42px);
+  border: 1px solid #e2e5e9;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 14px 38px rgb(16 25 35 / 5%);
+}
+
+.qelvaron-tracking-card h2 {
+  margin: 0 0 10px;
+  color: #182330;
+  font-size: clamp(22px, 3vw, 30px);
+  letter-spacing: -0.025em;
+}
+
+.qelvaron-tracking-card p {
+  max-width: 700px;
+  margin: 0;
+  color: #5c6673;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.qelvaron-tracking-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 13px;
+  border: 1px solid #f5d3c6;
+  border-radius: 999px;
+  color: #963a1a;
+  background: #fff5f0;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.qelvaron-tracking-status::before {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f15a24;
+  content: "";
+}
+
+.qelvaron-tracking-next {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  margin: 24px 0 0;
+}
+
+.qelvaron-tracking-button {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 22px;
+  border-radius: 28px;
+  color: #111827;
+  background: #f15a24;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform 160ms ease, background-color 160ms ease;
+}
+
+.qelvaron-tracking-button:hover {
+  transform: translateY(-1px);
+  background: #ff7440;
+}
+
+.qelvaron-tracking-note {
+  max-width: 760px;
+  margin: 24px 0 0;
+  color: #657080;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.qelvaron-legal-top {
+  padding: 54px 0 30px;
+}
+
+.qelvaron-legal-top .qelvaron-page-eyebrow {
+  margin-bottom: 10px;
+}
+
+.qelvaron-legal-top h1 {
+  margin: 0;
+  color: #17202d;
+  font-size: clamp(38px, 6vw, 58px);
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  line-height: 1.08;
+}
+
+.qelvaron-legal-updated {
+  margin: 16px 0 0;
+  color: #667180;
+  font-size: 13px;
+}
+
+.qelvaron-legal-draft {
+  margin: 24px 0 0;
+  padding: 17px 20px;
+  border: 1px solid #f0c6b3;
+  border-left: 4px solid #f15a24;
+  border-radius: 6px;
+  color: #553223;
+  background: #fff6f1;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.qelvaron-legal-draft strong {
+  color: #3a261e;
+}
+
+.qelvaron-legal-intro {
+  max-width: 860px;
+  margin: 0 0 28px;
+  color: #4f5b68;
+  font-size: 16px;
+  line-height: 1.8;
+}
+
+.qelvaron-legal-toc {
+  margin: 0 0 34px;
+  padding: 24px;
+  border: 1px solid #e2e5e9;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.qelvaron-legal-toc h2 {
+  margin: 0 0 14px;
+  color: #182330;
+  font-size: 16px;
+}
+
+.qelvaron-legal-toc ol {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 28px;
+  margin: 0;
+  padding-left: 20px;
+  color: #e84f1c;
+  font-size: 13px;
+}
+
+.qelvaron-legal-toc a {
+  color: #374252;
+  line-height: 1.55;
+  text-decoration-color: #d4d8de;
+  text-underline-offset: 3px;
+}
+
+.qelvaron-legal-toc a:hover {
+  color: #e84f1c;
+}
+
+.qelvaron-legal-content {
+  padding: clamp(24px, 5vw, 54px);
+  border: 1px solid #e3e6e9;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 14px 38px rgb(16 25 35 / 4%);
+}
+
+.qelvaron-legal-content section + section {
+  margin-top: 36px;
+  padding-top: 31px;
+  border-top: 1px solid #eceef1;
+}
+
+.qelvaron-legal-content h2 {
+  margin: 0 0 13px;
+  color: #17202d;
+  font-size: clamp(20px, 2.7vw, 25px);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.qelvaron-legal-content h3 {
+  margin: 22px 0 8px;
+  color: #263241;
+  font-size: 16px;
+}
+
+.qelvaron-legal-content p,
+.qelvaron-legal-content li {
+  color: #4f5b68;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.qelvaron-legal-content p {
+  margin: 0 0 13px;
+}
+
+.qelvaron-legal-content ul,
+.qelvaron-legal-content ol {
+  margin: 10px 0 16px;
+  padding-left: 23px;
+}
+
+.qelvaron-legal-content li + li {
+  margin-top: 7px;
+}
+
+.qelvaron-legal-content a {
+  color: #cf4619;
+  text-underline-offset: 3px;
+}
+
+.qelvaron-legal-contact {
+  padding: 18px 20px;
+  border-radius: 6px;
+  background: #f5f6f8;
+}
+
+@media (max-width: 1050px) {
+  .qelvaron-page-header {
+    grid-template-columns: auto 1fr;
+    gap: 10px 20px;
+  }
+
+  .qelvaron-page-nav {
+    display: none !important;
+  }
+
+  .qelvaron-page-mobile-menu {
+    position: relative;
+    display: block;
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+
+  .qelvaron-page-mobile-panel .qelvaron-mobile-nav-search {
+    display: block !important;
+    margin-bottom: 7px;
+  }
+
+  .qelvaron-page-mobile-panel .qelvaron-mobile-nav-quote {
+    display: flex !important;
+    margin-top: 9px;
+  }
+
+  .qelvaron-page-contact {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: end;
+  }
+}
+
+@media (max-width: 640px) {
+  .qelvaron-page-header {
+    grid-template-columns: 1fr auto;
+    padding: 14px 18px;
+  }
+
+  .qelvaron-page-brand {
+    min-width: 0;
+  }
+
+  .qelvaron-page-nav {
+    display: none !important;
+  }
+
+  .qelvaron-page-mobile-menu {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .qelvaron-page-contact {
+    display: none;
+  }
+
+  .qelvaron-page-main {
+    width: min(100% - 28px, 1160px);
+  }
+
+  .qelvaron-tracking-hero {
+    margin-top: 20px;
+    padding: 32px 24px;
+  }
+
+  .qelvaron-tracking-card {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding: 23px;
+  }
+
+  .qelvaron-tracking-status {
+    justify-self: start;
+  }
+
+  .qelvaron-legal-top {
+    padding-top: 36px;
+  }
+
+  .qelvaron-legal-toc {
+    padding: 20px;
+  }
+
+  .qelvaron-legal-toc ol {
+    grid-template-columns: 1fr;
+  }
+
+  .qelvaron-legal-content {
+    padding: 24px 20px;
+  }
+
+  .qelvaron-page-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    margin-top: 48px;
+    padding: 25px 20px;
+  }
+
+  .qelvaron-home-tracking-search {
+    width: 100%;
+  }
+
+  .qelvaron-home-tracking-search .qelvaron-tracking-search-form {
+    gap: 5px;
+    padding: 5px;
+  }
+
+  .qelvaron-home-tracking-search .qelvaron-tracking-search-form button {
+    padding: 0 12px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 991px) {
+  .qelvaron-mobile-nav-search {
+    display: block;
+    margin: 0 0 8px;
+    order: -1;
+  }
+
+  .qelvaron-mobile-nav-quote {
+    display: flex;
+    width: 100%;
+    order: 99;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qelvaron-page-contact,
+  .qelvaron-tracking-button {
+    transition: none;
+  }
+}
