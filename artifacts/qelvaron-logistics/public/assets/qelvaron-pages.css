@@ -1338,3 +1338,66 @@
     border-radius: 8px;
   }
 }
+
+/* The tracking page uses the Services hero treatment, but keeps the nav in flow. */
+body.qelvaron-tracking-page .navbar {
+  position: relative !important;
+  inset: auto !important;
+}
+
+body.qelvaron-tracking-page .navbar .nav-link,
+body.qelvaron-tracking-page .navbar .nav-slash,
+body.qelvaron-tracking-page .navbar .menu {
+  color: var(--_colors---secondary-200, #17202d) !important;
+}
+
+body.qelvaron-tracking-page .navbar .hamburger-line {
+  background-color: var(--_colors---secondary-200, #17202d) !important;
+}
+
+body.qelvaron-tracking-page .qelvaron-page-main {
+  width: 100%;
+  margin: 0;
+}
+
+body.qelvaron-tracking-page .qelvaron-tracking-hero {
+  display: flex;
+  min-height: clamp(420px, 68vh, 700px);
+  flex-direction: column;
+  justify-content: flex-end;
+  margin: 0 0 26px;
+  padding: clamp(64px, 10vh, 112px) max(24px, calc((100vw - 1160px) / 2));
+  border-radius: 0;
+  background-image:
+    linear-gradient(90deg, rgb(8 17 25 / 84%) 0%, rgb(10 20 29 / 66%) 48%, rgb(10 20 29 / 24%) 100%),
+    url("https://cdn.prod.website-files.com/6a5e1b2ea7187af913158218/6a65aaace419e49ca43012c1_Frame%202147227247.webp");
+  background-position: center, 62% center;
+  background-size: cover;
+}
+
+body.qelvaron-tracking-page .qelvaron-tracking-hero::after {
+  display: none;
+}
+
+body.qelvaron-tracking-page .qelvaron-tracking-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+body.qelvaron-tracking-page .qelvaron-page-main > :not(.qelvaron-tracking-hero) {
+  width: min(calc(100% - 40px), 1160px);
+  margin-right: auto;
+  margin-left: auto;
+}
+
+@media (max-width: 640px) {
+  body.qelvaron-tracking-page .qelvaron-tracking-hero {
+    min-height: 440px;
+    padding: 72px 24px 48px;
+    background-position: center, 60% center;
+  }
+
+  body.qelvaron-tracking-page .qelvaron-page-main > :not(.qelvaron-tracking-hero) {
+    width: calc(100% - 28px);
+  }
+}
