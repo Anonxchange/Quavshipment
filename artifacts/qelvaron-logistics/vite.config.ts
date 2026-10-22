@@ -103,6 +103,7 @@ export default defineConfig({
       input: {
         public: path.resolve(projectRoot, 'index.html'),
         admin: path.resolve(projectRoot, 'admin/index.html'),
+        tracking: path.resolve(projectRoot, 'tracking/index.html'),
       },
     },
   },
