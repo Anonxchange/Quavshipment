@@ -1,10 +1,12 @@
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { AlertTriangle, ArrowDownToLine, ArrowLeft, Check, ClipboardList, FileText, LogOut, Mail, Menu, PackagePlus, Pencil, Plus, Printer, Search, Ship, Trash2, X } from "lucide-react";
-import { demoRepository, type EmailDraft, type Shipment, type ShipmentStatus } from "./repository";
+import { AlertTriangle, ArrowDownToLine, ArrowLeft, Check, ClipboardList, FileText, LogOut, Mail, MapPin, Menu, PackagePlus, Pencil, Plus, Printer, Search, Ship, Trash2, X } from "lucide-react";
+import { demoRepository, type EmailDraft, type Shipment, type ShipmentStatus, type TrackingUpdate } from "./repository";
 import { toast } from "sonner";
+import PrintInvoiceModal from "./PrintInvoiceModal";
+import TrackingUpdatesModal from "./TrackingUpdatesModal";
 
 type View = "overview" | "shipments" | "emails";
-const statuses:ShipmentStatus[]=["Booked","Picked up","In transit","Delivered","Exception"];
+const statuses:ShipmentStatus[]=["Booked","Picked up","In transit","Stopover","Held by Customs","Out for delivery","Delayed","Delivered","Exception","Failed delivery"];
 const emptyShipment:Omit<Shipment,"id"|"tracking"|"created">={status:"Booked",mode:"Air",carrier:"",sender:"",senderEmail:"",senderPhone:"",originStreet:"",originCity:"",originRegion:"",originPostal:"",originCountry:"",recipient:"",recipientEmail:"",recipientPhone:"",destinationStreet:"",destinationCity:"",destinationRegion:"",destinationPostal:"",destinationCountry:"",cargo:"",packages:"1",weight:"",dimensions:"",pickup:"",estimated:"",total:"0.00",paid:"0.00",paymentMethod:"",paymentReference:"",paymentStatus:"Pending",notes:""};
 const asMoney=(val:string|number)=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Number(val)||0);
 const fullOrigin=(s:Shipment)=>[s.originStreet,s.originCity,s.originRegion,s.originPostal,s.originCountry].filter(Boolean).join(", ");
@@ -69,10 +71,11 @@ function ShipmentModal({shipment,onClose,onSave}:{shipment?:Shipment;onClose:()=
   </div></div>;
 }
 
-function Detail({shipment,onEdit,onPrint}:{shipment:Shipment;onEdit:()=>void;onPrint:()=>void}) {
+function Detail({shipment,onEdit,onPrint,onTracking,updateCount}:{shipment:Shipment;onEdit:()=>void;onPrint:()=>void;onTracking:()=>void;updateCount:number}) {
   const balance=Math.max(0,Number(shipment.total)-Number(shipment.paid));
   return <aside className="panel detail-card" data-testid={`panel-shipment-detail-${shipment.id}`}>
     <div className="detail-head"><div><div className="detail-ref">{shipment.tracking}</div><span className={`status ${statusClass(shipment.status)}`}>{shipment.status}</span></div><div className="row-actions"><button className="icon-button" aria-label="Edit shipment" title="Edit" onClick={onEdit} data-testid={`button-edit-${shipment.id}`}><Pencil/></button><button className="icon-button" aria-label="Print shipment" title="Print record" onClick={onPrint} data-testid={`button-print-${shipment.id}`}><Printer/></button></div></div>
+    <div className="detail-section tracking-actions"><h3>Tracking history</h3><p className="panel-note">{updateCount} recorded {updateCount===1?"update":"updates"} · saved in this browser</p><button className="button button-small" type="button" onClick={onTracking} data-testid={`button-tracking-updates-${shipment.id}`}><MapPin size={14}/>{updateCount?"Review updates":"Add tracking update"}</button></div>
     <div className="detail-section"><h3>Movement</h3><div className="detail-grid"><DetailItem label="Mode / carrier" value={`${shipment.mode} · ${shipment.carrier||"Unassigned"}`}/><DetailItem label="Cargo" value={shipment.cargo}/><DetailItem label="Packages / weight" value={`${shipment.packages} packages · ${shipment.weight||"—"}`}/><DetailItem label="Pickup / ETA" value={`${niceDate(shipment.pickup)} / ${niceDate(shipment.estimated)}`}/></div></div>
     <div className="detail-section"><h3>Origin</h3><div className="detail-grid"><DetailItem label="Sender" value={shipment.sender}/><DetailItem label="Contact" value={`${shipment.senderEmail||"—"} · ${shipment.senderPhone||"—"}`}/><DetailItem label="Full location" value={fullOrigin(shipment)}/></div></div>
     <div className="detail-section"><h3>Destination</h3><div className="detail-grid"><DetailItem label="Recipient" value={shipment.recipient}/><DetailItem label="Contact" value={`${shipment.recipientEmail||"—"} · ${shipment.recipientPhone||"—"}`}/><DetailItem label="Full location" value={fullDestination(shipment)}/></div></div>
@@ -86,9 +89,12 @@ export default function AdminApp() {
   const [email,setEmail]=useState("admin@qelvaron.test"),[password,setPassword]=useState("qelvaron-demo"),[loginError,setLoginError]=useState("");
   const [shipments,setShipments]=useState<Shipment[]>(()=>demoRepository.shipments());
   const [drafts,setDrafts]=useState<EmailDraft[]>(()=>demoRepository.drafts());
+  const [trackingUpdates,setTrackingUpdates]=useState<TrackingUpdate[]>(()=>demoRepository.trackingUpdates());
   const [view,setView]=useState<View>("overview"),[selectedId,setSelectedId]=useState<string|null>(null),[search,setSearch]=useState(""),[filter,setFilter]=useState("All statuses");
   const [editing,setEditing]=useState<Shipment|undefined>(),[toast,setToast]=useState("");
+  const [trackingModalShipment,setTrackingModalShipment]=useState<Shipment|null>(null),[printModalShipment,setPrintModalShipment]=useState<Shipment|null>(null);
   const [draftTracking,setDraftTracking]=useState(""),[draftRecipient,setDraftRecipient]=useState(""),[draftSubject,setDraftSubject]=useState(""),[draftBody,setDraftBody]=useState("");
+  const [editingDraftId,setEditingDraftId]=useState<string|null>(null);
   const selected=shipments.find(s=>s.id===selectedId)||null;
   const visible=useMemo(()=>shipments.filter(s=>{
     const term=search.trim().toLowerCase();
@@ -102,11 +108,22 @@ export default function AdminApp() {
   function login(e:FormEvent){e.preventDefault();if(email==="admin@qelvaron.test"&&password==="qelvaron-demo"){sessionStorage.setItem("qelvaron-admin-demo-auth","1");setAuthenticated(true);setLoginError("");}else setLoginError("Those demo credentials did not match. Try the preview credentials below.");}
   function logout(){sessionStorage.removeItem("qelvaron-admin-demo-auth");setAuthenticated(false);}
   function saveShipment(record:Shipment){const updated=shipments.some(s=>s.id===record.id)?shipments.map(s=>s.id===record.id?record:s):[record,...shipments];setSavedShipments(updated);setSelectedId(record.id);setEditing(undefined);setView("shipments");notify("Shipment saved to this browser.");}
-  function deleteShipment(s:Shipment){if(window.confirm(`Delete ${s.tracking} from this browser's demo data?`)){setSavedShipments(shipments.filter(x=>x.id!==s.id));if(selectedId===s.id)setSelectedId(null);notify("Shipment removed.");}}
+  function deleteShipment(s:Shipment){if(window.confirm(`Delete ${s.tracking} from this browser's demo data?`)){setSavedShipments(shipments.filter(x=>x.id!==s.id));const remainingUpdates=trackingUpdates.filter(update=>update.shipmentId!==s.id);setTrackingUpdates(remainingUpdates);demoRepository.saveTrackingUpdates(remainingUpdates);if(selectedId===s.id)setSelectedId(null);notify("Shipment removed.");}}
+  function saveTrackingUpdate(input:Pick<TrackingUpdate,"status"|"location"|"description">){
+    if(!trackingModalShipment)return;
+    const update:TrackingUpdate={...input,id:demoRepository.makeId(),shipmentId:trackingModalShipment.id,timestamp:new Date().toISOString()};
+    const nextUpdates=[update,...trackingUpdates];
+    setTrackingUpdates(nextUpdates);
+    demoRepository.saveTrackingUpdates(nextUpdates);
+    setSavedShipments(shipments.map(s=>s.id===trackingModalShipment.id?{...s,status:input.status}:s));
+    setSelectedId(trackingModalShipment.id);
+    setTrackingModalShipment(null);
+    notify("Tracking update saved to this browser.");
+  }
   function chooseShipment(s:Shipment){setSelectedId(s.id);setView("shipments");}
-  function prepareDraft(s?:Shipment){setDraftTracking(s?.tracking||"");setDraftRecipient(s?.recipientEmail||"");setDraftSubject(s?`Shipment update · ${s.tracking}`:"");setDraftBody(s?`Hello ${s.recipient},\n\nHere is a quick update about your shipment ${s.tracking}.\n\nCurrent status: ${s.status}\nEstimated delivery: ${niceDate(s.estimated)}\n\nPlease contact your logistics representative if you have questions.\n\nQelvaron Global Logistics`:"");setView("emails");}
-  function saveDraft(e:FormEvent){e.preventDefault();const match=shipments.find(s=>s.tracking===draftTracking);const draft:EmailDraft={id:demoRepository.makeId(),tracking:draftTracking,recipient:draftRecipient,subject:draftSubject,body:draftBody,updated:new Date().toISOString()};const next=[draft,...drafts];setDrafts(next);demoRepository.saveDrafts(next);notify(`Unsent draft saved${match?` for ${match.tracking}`:""}.`);}
-  function printShipment(s:Shipment){setSelectedId(s.id);window.setTimeout(()=>window.print(),30);}
+  function prepareDraft(s?:Shipment){setEditingDraftId(null);setDraftTracking(s?.tracking||"");setDraftRecipient(s?.recipientEmail||"");setDraftSubject(s?`Shipment update · ${s.tracking}`:"");setDraftBody(s?`Hello ${s.recipient},\n\nHere is a quick update about your shipment ${s.tracking}.\n\nCurrent status: ${s.status}\nEstimated delivery: ${niceDate(s.estimated)}\n\nPlease contact your logistics representative if you have questions.\n\nQelvaron Global Logistics`:"");setView("emails");}
+  function saveDraft(e:FormEvent){e.preventDefault();const match=shipments.find(s=>s.tracking===draftTracking);const draft:EmailDraft={id:editingDraftId||demoRepository.makeId(),tracking:draftTracking,recipient:draftRecipient,subject:draftSubject,body:draftBody,updated:new Date().toISOString()};const next=editingDraftId?drafts.map(existing=>existing.id===editingDraftId?draft:existing):[draft,...drafts];setDrafts(next);demoRepository.saveDrafts(next);setEditingDraftId(draft.id);notify(`${editingDraftId?"Draft updated":"Unsent draft saved"}${match?` for ${match.tracking}`:""}.`);}
+  function printShipment(s:Shipment){setSelectedId(s.id);setPrintModalShipment(s);}
   function nav(to:View){setView(to);}
 
   if(!authenticated)return <div className="qelvaron-admin">
@@ -161,25 +178,27 @@ export default function AdminApp() {
           {view==="shipments"&&<section><div className="page-head"><div><p className="text-size-small admin-kicker">Shipment register</p><h1 className="heading-style-h1 admin-page-title">Shipments</h1><p className="admin-page-subtitle">Create, update and review shipment records. Data shown here is synthetic demo data.</p></div><button className="button button-primary" onClick={()=>setEditing({...emptyShipment,id:"",tracking:"",created:""})} data-testid="button-create-shipment"><PackagePlus size={16}/> Create shipment</button></div>
             <div className="list-layout"><div className="panel"><div className="toolbar"><div className="searchbox"><Search/><input className="field-control" placeholder="Search tracking, name, city, carrier" value={search} onChange={e=>setSearch(e.target.value)} aria-label="Search shipments" data-testid="input-search-shipments"/></div><select className="field-control" value={filter} onChange={e=>setFilter(e.target.value)} aria-label="Filter by status" data-testid="select-filter-status"><option>All statuses</option>{statuses.map(s=><option key={s}>{s}</option>)}</select></div>
               <ShipmentTable shipments={visible} selectedId={selectedId} onSelect={chooseShipment} onEdit={s=>setEditing(s)} onDelete={deleteShipment} onPrint={printShipment}/>
-            </div>{selected?<Detail shipment={selected} onEdit={()=>setEditing(selected)} onPrint={()=>printShipment(selected)}/>:<div className="panel empty-state"><div className="empty-mark"><ClipboardList/></div><h3>Select a shipment</h3><p>Choose a row to inspect full contacts, locations and payment details.</p></div>}</div>
+            </div>{selected?<Detail shipment={selected} onEdit={()=>setEditing(selected)} onPrint={()=>printShipment(selected)} onTracking={()=>setTrackingModalShipment(selected)} updateCount={trackingUpdates.filter(update=>update.shipmentId===selected.id).length}/>:<div className="panel empty-state"><div className="empty-mark"><ClipboardList/></div><h3>Select a shipment</h3><p>Choose a row to inspect full contacts, locations and payment details.</p></div>}</div>
           </section>}
-          {view==="emails"&&<section><div className="page-head"><div><p className="text-size-small admin-kicker">Customer correspondence</p><h1 className="heading-style-h1 admin-page-title">Email drafts</h1><p className="admin-page-subtitle">Prepare shipment updates and save them for review. Sending is disabled.</p></div></div>
+          {view==="emails"&&<section><div className="page-head"><div><p className="text-size-small admin-kicker">Customer correspondence</p><h1 className="heading-style-h1 admin-page-title">Email drafts</h1><p className="admin-page-subtitle">Prepare shipment updates and save them for review. Sending is disabled.</p></div><button className="button button-primary" type="button" onClick={()=>prepareDraft()} data-testid="button-new-draft"><Plus size={15}/> New draft</button></div>
             <div className="notice" style={{marginBottom:15}}><AlertTriangle/><span><strong>Real email sending is disabled.</strong> Drafts are saved in this browser only. Connect Supabase and Resend before enabling delivery; no message is sent from this preview.</span></div>
-            <div className="email-layout"><form className="panel form-panel" onSubmit={saveDraft}><h2 className="form-title">Compose an unsent message</h2><div className="form-grid">
+            <div className="email-layout"><form className="panel form-panel" onSubmit={saveDraft}><h2 className="form-title">{editingDraftId?"Edit unsent message":"Compose an unsent message"}</h2><div className="form-grid">
               <div className="form-field"><label htmlFor="draft-shipment">Shipment</label><select id="draft-shipment" className="field-control" value={draftTracking} onChange={e=>{const t=e.target.value;setDraftTracking(t);const s=shipments.find(x=>x.tracking===t);if(s){setDraftRecipient(s.recipientEmail);setDraftSubject(`Shipment update · ${s.tracking}`);setDraftBody(`Hello ${s.recipient},\n\nHere is a quick update about your shipment ${s.tracking}.\n\nCurrent status: ${s.status}\nEstimated delivery: ${niceDate(s.estimated)}\n\nPlease contact your logistics representative if you have questions.\n\nQelvaron Global Logistics`);}}} data-testid="select-draft-shipment"><option value="">Choose shipment (optional)</option>{shipments.map(s=><option key={s.id} value={s.tracking}>{s.tracking} · {s.recipient}</option>)}</select></div>
               <div className="form-field"><label htmlFor="draft-recipient">Recipient email</label><input id="draft-recipient" type="email" value={draftRecipient} onChange={e=>setDraftRecipient(e.target.value)} required data-testid="input-draft-recipient"/></div>
               <div className="form-field full"><label htmlFor="draft-subject">Subject</label><input id="draft-subject" value={draftSubject} onChange={e=>setDraftSubject(e.target.value)} required data-testid="input-draft-subject"/></div>
               <div className="form-field full"><label htmlFor="draft-body">Message</label><textarea id="draft-body" value={draftBody} onChange={e=>setDraftBody(e.target.value)} required data-testid="input-draft-body"/></div>
-            </div><div className="form-footer"><span style={{fontSize:10,color:"#85909a"}}>Saved drafts remain unsent.</span><button className="button button-primary" type="submit" data-testid="button-save-draft"><Check size={15}/> Save draft</button></div></form>
+            </div><div className="form-footer"><span style={{fontSize:10,color:"#85909a"}}>Saved drafts remain unsent.</span><button className="button button-primary" type="submit" data-testid="button-save-draft"><Check size={15}/> {editingDraftId?"Update draft":"Save draft"}</button></div></form>
               <div className="panel"><div className="panel-head"><div><h2 className="panel-title">Saved drafts</h2><p className="panel-note">{drafts.length} unsent {drafts.length===1?"draft":"drafts"}</p></div><FileText size={16} color="#79848f"/></div>
-                {drafts.length?<div className="draft-list">{drafts.map(d=><button key={d.id} className="draft-item" style={{width:"100%",background:"white",textAlign:"left",cursor:"pointer"}} onClick={()=>{setDraftTracking(d.tracking);setDraftRecipient(d.recipient);setDraftSubject(d.subject);setDraftBody(d.body);}} data-testid={`draft-item-${d.id}`}><strong>{d.subject||"(No subject)"}</strong><span>{d.recipient} · {d.tracking||"No shipment"} · Unsent</span></button>)}</div>:<div className="empty-state" style={{padding:"30px 16px"}}><div className="empty-mark"><Mail/></div><h3>No saved drafts</h3><p>Write a shipment update and save it here for review.</p></div>}
+                {drafts.length?<div className="draft-list">{drafts.map(d=><button key={d.id} className="draft-item" style={{width:"100%",background:"white",textAlign:"left",cursor:"pointer"}} onClick={()=>{setEditingDraftId(d.id);setDraftTracking(d.tracking);setDraftRecipient(d.recipient);setDraftSubject(d.subject);setDraftBody(d.body);}} data-testid={`draft-item-${d.id}`}><strong>{d.subject||"(No subject)"}</strong><span>{d.recipient} · {d.tracking||"No shipment"} · Unsent</span></button>)}</div>:<div className="empty-state" style={{padding:"30px 16px"}}><div className="empty-mark"><Mail/></div><h3>No saved drafts</h3><p>Write a shipment update and save it here for review.</p></div>}
               </div></div>
           </section>}
-        </main>
           </div>
         </div>
+      </main>
     </div>
     {editing&&<ShipmentModal shipment={editing.id?editing:undefined} onClose={()=>setEditing(undefined)} onSave={saveShipment}/>}
+    {trackingModalShipment&&<TrackingUpdatesModal shipment={trackingModalShipment} updates={trackingUpdates} onClose={()=>setTrackingModalShipment(null)} onSave={saveTrackingUpdate}/>}
+    {printModalShipment&&<PrintInvoiceModal shipment={printModalShipment} onClose={()=>setPrintModalShipment(null)} onPrint={()=>window.print()}><PrintSheet shipment={printModalShipment} preview/></PrintInvoiceModal>}
     {toast&&<div className="toast" role="status" data-testid="status-toast">{toast}</div>}
     {selected&&<PrintSheet shipment={selected}/>}
   </>;
@@ -250,9 +269,9 @@ function ShipmentTable({shipments,selectedId,onSelect,onEdit,onDelete,onPrint}:{
     </div></td>
   </tr>)}</tbody></table></div>;
 }
-function PrintSheet({shipment:s}:{shipment:Shipment}){
+function PrintSheet({shipment:s,preview=false}:{shipment:Shipment;preview?:boolean}){
   const bal=Math.max(0,Number(s.total)-Number(s.paid));
-  return <article className="print-sheet" data-testid="print-shipment-record">
+  return <article className={`print-sheet${preview?" print-preview-sheet":""}`} data-testid={preview?"print-invoice-preview":"print-shipment-record"}>
     <div className="print-header"><img src="/qelvaron-logo-dark.svg" alt="Qelvaron Global Logistics"/><div className="print-title"><h1>Shipment waybill</h1><p>Operations record · Preview copy</p></div></div>
     <div className="print-ref"><span>Tracking reference</span><strong>{s.tracking}</strong><span className={`status ${statusClass(s.status)}`}>{s.status}</span></div>
     <div className="print-columns">

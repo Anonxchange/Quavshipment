@@ -1,5 +1,13 @@
-export type ShipmentStatus = "Booked" | "Picked up" | "In transit" | "Delivered" | "Exception";
+export type ShipmentStatus = "Booked" | "Picked up" | "In transit" | "Stopover" | "Held by Customs" | "Out for delivery" | "Delayed" | "Delivered" | "Exception" | "Failed delivery";
 export type PaymentStatus = "Pending" | "Partial" | "Paid" | "Overdue";
+export type TrackingUpdate = {
+  id: string;
+  shipmentId: string;
+  status: ShipmentStatus;
+  location: string;
+  description: string;
+  timestamp: string;
+};
 export type Shipment = {
   id: string; tracking: string; created: string; status: ShipmentStatus; mode: string; carrier: string;
   sender: string; senderEmail: string; senderPhone: string; originStreet: string; originCity: string; originRegion: string; originPostal: string; originCountry: string;
@@ -10,6 +18,7 @@ export type Shipment = {
 export type EmailDraft = { id: string; tracking: string; recipient: string; subject: string; body: string; updated: string };
 const SHIPMENTS_KEY = "qelvaron-admin-demo-shipments-v1";
 const DRAFTS_KEY = "qelvaron-admin-demo-drafts-v1";
+const TRACKING_UPDATES_KEY = "qelvaron-admin-demo-tracking-updates-v1";
 const synthetic: Shipment[] = [
   {id:"demo-001",tracking:"QGL-260614-0821",created:"2026-06-14",status:"In transit",mode:"Air",carrier:"SkyBridge Cargo",sender:"Marina Ortiz",senderEmail:"marina.ortiz@example.test",senderPhone:"+1 305 555 0148",originStreet:"1840 NW 21st Terrace",originCity:"Miami",originRegion:"FL",originPostal:"33142",originCountry:"United States",recipient:"Lucía Herrera",recipientEmail:"lucia.herrera@example.test",recipientPhone:"+57 601 555 0193",destinationStreet:"Carrera 13 # 82-45",destinationCity:"Bogotá",destinationRegion:"Cundinamarca",destinationPostal:"110221",destinationCountry:"Colombia",cargo:"Commercial textile samples",packages:"4",weight:"68.5 kg",dimensions:"60 × 45 × 38 cm",pickup:"2026-06-14",estimated:"2026-06-19",total:"842.50",paid:"500.00",paymentMethod:"Wire transfer",paymentReference:"DEMO-WIRE-092",paymentStatus:"Partial",notes:"Synthetic sample record for preview only."},
   {id:"demo-002",tracking:"QGL-260612-0714",created:"2026-06-12",status:"Booked",mode:"Sea",carrier:"Atlantic Meridian",sender:"Daniel Brooks",senderEmail:"daniel.brooks@example.test",senderPhone:"+1 786 555 0172",originStreet:"9400 NW 36th Street, Suite 210",originCity:"Doral",originRegion:"FL",originPostal:"33178",originCountry:"United States",recipient:"Renato Alves",recipientEmail:"renato.alves@example.test",recipientPhone:"+55 11 5555 0186",destinationStreet:"Av. Paulista 1450",destinationCity:"São Paulo",destinationRegion:"SP",destinationPostal:"01310-100",destinationCountry:"Brazil",cargo:"Display fixtures",packages:"12",weight:"224 kg",dimensions:"120 × 80 × 76 cm",pickup:"2026-06-17",estimated:"2026-07-05",total:"1,640.00",paid:"1,640.00",paymentMethod:"Card",paymentReference:"DEMO-CARD-31",paymentStatus:"Paid",notes:"Synthetic sample record for preview only."},
@@ -22,5 +31,7 @@ export const demoRepository = {
   saveShipments(value:Shipment[]):void { write(SHIPMENTS_KEY,value); },
   drafts():EmailDraft[] { return read<EmailDraft[]>(DRAFTS_KEY,[]); },
   saveDrafts(value:EmailDraft[]):void { write(DRAFTS_KEY,value); },
+  trackingUpdates():TrackingUpdate[] { return read<TrackingUpdate[]>(TRACKING_UPDATES_KEY,[]); },
+  saveTrackingUpdates(value:TrackingUpdate[]):void { write(TRACKING_UPDATES_KEY,value); },
   makeId():string { return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`; }
 };
