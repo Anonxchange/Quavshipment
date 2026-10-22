@@ -1,3 +1,4 @@
 - [Qelvaron business details](qelvaron-business-details.md) — Miami-based logistics company; street address, email, and phone remain unconfirmed.
 - [Qelvaron site direction](qelvaron-site-direction.md) — preserve the Webflow theme; use six local navigation links, remove the cart, and support Vercel.
 - [Shell staging](shell-staging.md) — use workspace-local ignored staging paths when data must survive across ShellExec calls.
+- [Imported artifact preview routing](artifact-preview-routing.md) — keep imported Replit artifacts at the workspace artifact root so the shared preview proxy can route them.
