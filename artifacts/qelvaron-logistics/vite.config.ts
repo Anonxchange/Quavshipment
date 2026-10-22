@@ -10,7 +10,7 @@ const staticExportPages: Plugin = {
   configureServer(server) {
     server.middlewares.use((request, _response, next) => {
       const [pathname, query] = (request.url ?? '/').split('?', 2);
-      const page = /^\/(about|services|contact|how-it-works)\/?$/.exec(
+      const page = /^\/(about|services|contact|how-it-works|blog|career)\/?$/.exec(
         pathname,
       )?.[1];
 
@@ -23,7 +23,7 @@ const staticExportPages: Plugin = {
   configurePreviewServer(server) {
     server.middlewares.use((request, _response, next) => {
       const [pathname, query] = (request.url ?? '/').split('?', 2);
-      const page = /^\/(about|services|contact|how-it-works)\/?$/.exec(
+      const page = /^\/(about|services|contact|how-it-works|blog|career)\/?$/.exec(
         pathname,
       )?.[1];
 

@@ -25,6 +25,16 @@
       "permanent": true
     },
     {
+      "source": "/blog",
+      "destination": "/blog/",
+      "permanent": true
+    },
+    {
+      "source": "/career",
+      "destination": "/career/",
+      "permanent": true
+    },
+    {
       "source": "/tracking",
       "destination": "/#tracking",
       "permanent": false
