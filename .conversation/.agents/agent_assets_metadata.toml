@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "uApch06b5cBS1fxwzifR6"
+uri = "file://deliverables/quavshipment-main-port.patch"
+type = "unspecified"
+title = "Quavshipment main patch"
+description = "Plain git patch with the replit-agent changes ported onto current main; apply locally with git apply --index."
+logical_id = "6ef872ef-e92e-4ef8-b075-a24d84baf16e"
+content_hash = "sha256:c29bdef73c81d51d323f60a620525760ccf67902dfea5125d491705c57611eb0"
+size = 1164161
+mtime_ms = 1792643105410
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/conversation:a6bb3073-d57c-4446-9713-99566bb182ca/6ef872ef-e92e-4ef8-b075-a24d84baf16e/d27e7a4f-35da-46cf-9262-51b640848c74"
+storage_version_token = "1792643109332830"
+content_type = "application/octet-stream"

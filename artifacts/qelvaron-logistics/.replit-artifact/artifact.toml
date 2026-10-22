@@ -1,7 +1,7 @@
 kind = "web"
 previewPath = "/"
 title = "Qelvaron Global Logistics"
-description = "A public-facing logistics website for Qelvaron Global Logistics, showcasing services and helping visitors prepare shipment inquiries."
+description = "A public-facing logistics website for Qelvaron Global Logistics, showcasing freight services and helping visitors prepare shipment inquiries."
 version = "1.0.0"
 id = "artifacts/qelvaron-logistics"
 router = "path"
@@ -50,6 +50,46 @@ to = "/how-it-works/index.html"
 [[services.production.rewrites]]
 from = "/how-it-works/"
 to = "/how-it-works/index.html"
+
+[[services.production.rewrites]]
+from = "/blog"
+to = "/blog/index.html"
+
+[[services.production.rewrites]]
+from = "/blog/"
+to = "/blog/index.html"
+
+[[services.production.rewrites]]
+from = "/career"
+to = "/career/index.html"
+
+[[services.production.rewrites]]
+from = "/career/"
+to = "/career/index.html"
+
+[[services.production.rewrites]]
+from = "/tracking"
+to = "/tracking/index.html"
+
+[[services.production.rewrites]]
+from = "/tracking/"
+to = "/tracking/index.html"
+
+[[services.production.rewrites]]
+from = "/privacy-policy"
+to = "/privacy-policy/index.html"
+
+[[services.production.rewrites]]
+from = "/privacy-policy/"
+to = "/privacy-policy/index.html"
+
+[[services.production.rewrites]]
+from = "/terms-and-conditions"
+to = "/terms-and-conditions/index.html"
+
+[[services.production.rewrites]]
+from = "/terms-and-conditions/"
+to = "/terms-and-conditions/index.html"
 
 [[services.production.rewrites]]
 from = "/*"

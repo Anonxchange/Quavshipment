@@ -6,6 +6,25 @@ document.addEventListener(
       return;
     }
 
+    if (form.matches('[data-qelvaron-tracking-search]')) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+
+      const status = form.parentElement?.querySelector(
+        '[data-qelvaron-tracking-status]',
+      );
+      const reference = String(
+        new FormData(form).get('trackingReference') ?? '',
+      ).trim();
+
+      if (status) {
+        status.textContent = reference
+          ? 'Live tracking is not connected yet. Your reference was not sent or saved. Contact your Qelvaron representative for an update.'
+          : 'Enter a shipment reference to continue.';
+      }
+      return;
+    }
+
     event.preventDefault();
     event.stopImmediatePropagation();
 

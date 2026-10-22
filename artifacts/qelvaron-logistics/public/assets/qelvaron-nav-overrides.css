@@ -7,6 +7,12 @@
   white-space: nowrap;
 }
 
+/* Keep the Blog and Career pages on the same main navigation as the rest of the site. */
+html[data-wf-page="6a62a326afaed27e0df86e95"] .tab-menus,
+html[data-wf-page="6a62a44e6359e679332ae4ed"] .tab-menus {
+  display: none !important;
+}
+
 @media screen and (min-width: 992px) {
   html[data-wf-page="6a62a326afaed27e0df86e95"] .container-large.nav,
   html[data-wf-page="6a62a44e6359e679332ae4ed"] .container-large.nav {

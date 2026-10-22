@@ -10,12 +10,16 @@ const pagePaths = [
   'public/how-it-works/index.html',
   'public/blog/index.html',
   'public/career/index.html',
+  'public/tracking/index.html',
+  'public/privacy-policy/index.html',
+  'public/terms-and-conditions/index.html',
 ];
 const appScript = '<script src="/qelvaron-pages.js" defer></script>';
 const localStylesheets = [
   '<link href="/assets/qelvaron-webflow.css" rel="stylesheet">',
   '<link href="/assets/qelvaron-nav-overrides.css" rel="stylesheet">',
   '<link href="/assets/qelvaron-content-overrides.css" rel="stylesheet">',
+  '<link href="/assets/qelvaron-pages.css" rel="stylesheet">',
 ];
 const contentOverrides = '<link href="/assets/qelvaron-content-overrides.css" rel="stylesheet">';
 const homeHtml = readFileSync(resolve(appRoot, 'index.html'), 'utf8');
@@ -34,10 +38,198 @@ const navigationItems = [
   { href: '/about/', label: 'About Us', page: 'about' },
   { href: '/contact/', label: 'Contact Us', page: 'contact' },
   { href: '/how-it-works/', label: 'How It Works', page: 'how-it-works' },
-  { href: '/blog/', label: 'Blog', page: 'blog' },
-  { href: '/career/', label: 'Career', page: 'career' },
-  { href: '/#tracking', label: 'Tracking', page: 'tracking' },
+  { href: '/tracking/', label: 'Tracking', page: 'tracking' },
 ];
+const canonicalChrome = extractCanonicalChrome(homeHtml);
+
+function openingTagWithClass(html, tagName, className) {
+  const escapedClass = className.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(
+    `<${tagName}\\b(?=[^>]*\\bclass=["'][^"']*\\b${escapedClass}\\b[^"']*["'])[^>]*>`,
+    'i',
+  ).exec(html);
+}
+
+function matchingElementEnd(html, startIndex, tagName, pagePath) {
+  const tagPattern = new RegExp(
+    `<!--[\\s\\S]*?-->|<script\\b[^>]*>[\\s\\S]*?<\\/script>|<style\\b[^>]*>[\\s\\S]*?<\\/style>|<\\/?${tagName}\\b[^>]*>`,
+    'gi',
+  );
+  tagPattern.lastIndex = startIndex;
+  let depth = 0;
+
+  for (let match; (match = tagPattern.exec(html)); ) {
+    const tag = match[0];
+    if (tag.startsWith('<!--') || /^<(?:script|style)\b/i.test(tag)) continue;
+    if (new RegExp(`^<\\/${tagName}\\b`, 'i').test(tag)) {
+      depth -= 1;
+    } else if (!/\/\s*>$/.test(tag)) {
+      depth += 1;
+    }
+    if (depth === 0) return tagPattern.lastIndex;
+  }
+
+  throw new Error(`Could not find the end of <${tagName}> in ${pagePath}`);
+}
+
+function extractCanonicalChrome(html) {
+  const pageWrapper = openingTagWithClass(html, 'div', 'page-wrapper');
+  const mainWrapper = openingTagWithClass(html, 'div', 'main-wrapper');
+  const footerOpening =
+    /<(section|footer)\b(?=[^>]*\bclass=["'][^"']*\bfooter\b[^"']*["'])[^>]*>/i.exec(
+      html,
+    );
+
+  if (!pageWrapper || !mainWrapper || !footerOpening) {
+    throw new Error('Could not find the homepage header and footer.');
+  }
+
+  const headerStart = pageWrapper.index + pageWrapper[0].length;
+  if (headerStart >= mainWrapper.index) {
+    throw new Error('Could not determine the homepage header boundaries.');
+  }
+
+  const footerEnd = matchingElementEnd(
+    html,
+    footerOpening.index,
+    footerOpening[1],
+    'index.html',
+  );
+
+  return {
+    header: html.slice(headerStart, mainWrapper.index),
+    footer: normalizeLegalFooterLinks(
+      html.slice(footerOpening.index, footerEnd),
+    ),
+  };
+}
+
+function removeSectionById(html, id, pagePath) {
+  const escapedId = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const openingSection = new RegExp(
+    `<section\\b(?=[^>]*\\bid=["']${escapedId}["'])[^>]*>`,
+    'i',
+  ).exec(html);
+  if (!openingSection) return html;
+
+  const tagPattern =
+    /<!--[\s\S]*?-->|<script\b[^>]*>[\s\S]*?<\/script>|<style\b[^>]*>[\s\S]*?<\/style>|<\/?section\b[^>]*>/gi;
+  tagPattern.lastIndex = openingSection.index;
+  let depth = 0;
+  let sectionEnd = -1;
+
+  for (let match; (match = tagPattern.exec(html)); ) {
+    const tag = match[0];
+    if (tag.startsWith('<!--') || /^<(?:script|style)\b/i.test(tag)) continue;
+    if (/^<\/section\b/i.test(tag)) {
+      depth -= 1;
+    } else if (!/\/\s*>$/.test(tag)) {
+      depth += 1;
+    }
+    if (depth === 0) {
+      sectionEnd = tagPattern.lastIndex;
+      break;
+    }
+  }
+
+  if (sectionEnd < 0) {
+    throw new Error(`Could not find the end of section #${id} in ${pagePath}`);
+  }
+
+  return html.slice(0, openingSection.index) + html.slice(sectionEnd);
+}
+
+function normalizeLegalFooterLinks(html) {
+  const footerOpening =
+    /<(section|footer)\b(?=[^>]*\bclass=["'][^"']*\bfooter\b[^"']*["'])[^>]*>/i.exec(
+      html,
+    );
+  if (!footerOpening) {
+    throw new Error('Could not find the shared footer to normalize.');
+  }
+
+  const footerEnd = matchingElementEnd(
+    html,
+    footerOpening.index,
+    footerOpening[1],
+    'footer',
+  );
+  let footer = html.slice(footerOpening.index, footerEnd);
+  const mainHeading =
+    /<p\b(?=[^>]*\bclass=["'][^"']*\bfooter-content-header\b[^"']*["'])[^>]*>\s*Main\s*<\/p>/i.exec(
+      footer,
+    );
+  if (!mainHeading) {
+    throw new Error('Could not find the Main link group in the shared footer.');
+  }
+
+  const mainGroupOffset = mainHeading.index + mainHeading[0].length;
+  const mainLinks = openingTagWithClass(
+    footer.slice(mainGroupOffset),
+    'div',
+    'footer-pages-links',
+  );
+  if (!mainLinks) {
+    throw new Error('Could not find the Main links in the shared footer.');
+  }
+
+  const mainLinksStart = mainGroupOffset + mainLinks.index;
+  const mainLinksEnd = matchingElementEnd(
+    footer,
+    mainLinksStart,
+    'div',
+    'footer',
+  );
+  const sharedLinks = [
+    '<a href="/services/" class="footer-page-link">Services</a>',
+    '<p class="footer-content-header">/</p>',
+    '<a href="/tracking/" class="footer-page-link">Tracking</a>',
+    '<p class="footer-content-header">/</p>',
+    '<a href="#contact" class="footer-page-link">Contact us</a>',
+    '<p class="footer-content-header">/</p>',
+    '<a href="/blog/" class="footer-page-link">Blog</a>',
+    '<p class="footer-content-header">/</p>',
+    '<a href="/career/" class="footer-page-link">Career</a>',
+  ].join('');
+  const mainLinksBlock = footer.slice(mainLinksStart, mainLinksEnd);
+  footer =
+    footer.slice(0, mainLinksStart) +
+    mainLinksBlock.slice(0, mainLinks[0].length) +
+    sharedLinks +
+    '</div>' +
+    footer.slice(mainLinksEnd);
+
+  const footerPageLink =
+    /<a\b(?=[^>]*\bclass=["'][^"']*\bfooter-page-link\b[^"']*["'])[^>]*>[\s\S]*?<\/a>/gi;
+  const legalLinks = [
+    '<a href="/privacy-policy/" class="footer-page-link">Privacy Policy</a>',
+    '<a href="/terms-and-conditions/" class="footer-page-link">Terms &amp; Conditions</a>',
+  ].join('');
+  footer = footer.replace(footerPageLink, (anchor) => {
+    const label = anchor
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return /privacy\s+policy|terms\s*(?:&|and)?\s*conditions/i.test(label)
+      ? ''
+      : anchor;
+  });
+
+  const copyright =
+    /<p\b(?=[^>]*\bclass=["'][^"']*\bcopyright-text\b[^"']*["'])[^>]*>[\s\S]*?<\/p>/i;
+  if (!copyright.test(footer)) {
+    throw new Error('Could not find copyright text in the shared footer.');
+  }
+  footer = footer.replace(copyright, (match) => match + legalLinks);
+
+  return (
+    html.slice(0, footerOpening.index) +
+    footer +
+    html.slice(footerEnd)
+  );
+}
 
 function removeInjectedChallenge(html, pagePath) {
   let cleaned = html;
@@ -158,9 +350,10 @@ function normalizeBrand(html) {
 }
 
 function normalizeNavigation(html, pagePath) {
-  const nav = /<nav\b(?=[^>]*\bclass=["'][^"']*\bnav-menu\b[^"']*["'])[^>]*>[\s\S]*?<\/nav>/i.exec(
-    html,
-  );
+  const nav =
+    /<nav\b(?=[^>]*\bclass=["'][^"']*\b(?:nav-menu|qelvaron-page-nav)\b[^"']*["'])[^>]*>[\s\S]*?<\/nav>/i.exec(
+      html,
+    );
   if (!nav) {
     throw new Error(`Could not find the main navigation in ${pagePath}`);
   }
@@ -192,7 +385,200 @@ function normalizeNavigation(html, pagePath) {
     })
     .join('');
 
-  return html.replace(nav[0], `${openingTag}${links}</nav>`);
+  const menuSearch = trackingSearchMarkup(
+    'qelvaron-menu-tracking',
+    'qelvaron-mobile-nav-search',
+    'qelvaron-tracking-search-form',
+    'Search',
+  );
+  const quoteLink =
+    '<a href="/contact/" class="qelvaron-mobile-nav-quote">Get Quote</a>';
+  return html.replace(nav[0], `${openingTag}${menuSearch}${links}${quoteLink}</nav>`);
+}
+
+function addBodyClass(html, className) {
+  return html.replace(/<body\b[^>]*>/i, (openingTag) => {
+    const classAttribute = /\bclass=(["'])(.*?)\1/i.exec(openingTag);
+    if (!classAttribute) {
+      return openingTag.replace(/>$/, ` class="${className}">`);
+    }
+
+    const classes = classAttribute[2].split(/\s+/).filter(Boolean);
+    if (classes.includes(className)) return openingTag;
+    classes.push(className);
+
+    const updatedAttribute =
+      `class=${classAttribute[1]}` +
+      `${classes.join(' ')}${classAttribute[1]}`;
+    return (
+      openingTag.slice(0, classAttribute.index) +
+      updatedAttribute +
+      openingTag.slice(classAttribute.index + classAttribute[0].length)
+    );
+  });
+}
+
+function replaceSharedChrome(html, pagePath) {
+  if (pagePath === 'index.html') return html;
+
+  let normalized = html;
+  const pageWrapper = openingTagWithClass(
+    normalized,
+    'div',
+    'page-wrapper',
+  );
+  const mainWrapper = openingTagWithClass(normalized, 'div', 'main-wrapper');
+
+  if (
+    pageWrapper &&
+    mainWrapper &&
+    pageWrapper.index < mainWrapper.index
+  ) {
+    const headerStart = pageWrapper.index + pageWrapper[0].length;
+    normalized =
+      normalized.slice(0, headerStart) +
+      canonicalChrome.header +
+      normalized.slice(mainWrapper.index);
+  } else {
+    const customHeader = openingTagWithClass(
+      normalized,
+      'header',
+      'qelvaron-page-header',
+    );
+
+    if (customHeader) {
+      const headerEnd = matchingElementEnd(
+        normalized,
+        customHeader.index,
+        'header',
+        pagePath,
+      );
+      normalized =
+        normalized.slice(0, customHeader.index) +
+        canonicalChrome.header +
+        normalized.slice(headerEnd);
+    } else {
+      const navbar = openingTagWithClass(normalized, 'div', 'navbar');
+      if (!navbar) {
+        throw new Error(`Could not find the site header in ${pagePath}`);
+      }
+      const navbarEnd = matchingElementEnd(
+        normalized,
+        navbar.index,
+        'div',
+        pagePath,
+      );
+      normalized =
+        normalized.slice(0, navbar.index) +
+        canonicalChrome.header +
+        normalized.slice(navbarEnd);
+    }
+  }
+
+  const footerOpening =
+    /<(section|footer)\b(?=[^>]*\bclass=["'][^"']*\bfooter\b[^"']*["'])[^>]*>/i.exec(
+      normalized,
+    );
+  if (!footerOpening) {
+    throw new Error(`Could not find the site footer in ${pagePath}`);
+  }
+
+  const footerEnd = matchingElementEnd(
+    normalized,
+    footerOpening.index,
+    footerOpening[1],
+    pagePath,
+  );
+  normalized =
+    normalized.slice(0, footerOpening.index) +
+    canonicalChrome.footer +
+    normalized.slice(footerEnd);
+
+  if (
+    pagePath.startsWith('public/privacy-policy/') ||
+    pagePath.startsWith('public/terms-and-conditions/')
+  ) {
+    normalized = addBodyClass(normalized, 'qelvaron-legal-page');
+  }
+
+  return normalized;
+}
+
+function trackingSearchMarkup(id, wrapperClass, formClass, buttonLabel) {
+  return `<div class="${wrapperClass}"><form class="${formClass}" role="search" data-qelvaron-tracking-search><label class="qelvaron-sr-only" for="${id}">Shipment or tracking number</label><div class="qelvaron-search-input-wrap"><span class="qelvaron-search-icon" aria-hidden="true">⌕</span><input id="${id}" type="search" name="trackingReference" placeholder="Search or tracking number" autocomplete="off" required></div><button type="submit">${buttonLabel}</button></form><p class="qelvaron-tracking-search-status" data-qelvaron-tracking-status role="status" aria-live="polite">Live tracking is not connected yet.</p></div>`;
+}
+
+function matchingDivEnd(html, startIndex, pagePath) {
+  return matchingElementEnd(html, startIndex, 'div', pagePath);
+}
+
+function normalizeHomeHeroTrackingSearch(html, pagePath) {
+  const heroPattern =
+    /<div\b(?=[^>]*\bclass=["'][^"']*home-slider-wrapper[^"']*["'])[^>]*>/gi;
+  let result = '';
+  let cursor = 0;
+  let nextId = 0;
+  let existingSearch = false;
+  let wrapperCount = 0;
+
+  for (let hero; (hero = heroPattern.exec(html)); ) {
+    const heroEnd = matchingDivEnd(html, hero.index, pagePath);
+    const currentHero = html.slice(hero.index, heroEnd);
+    wrapperCount += 1;
+    existingSearch ||= currentHero.includes('data-qelvaron-tracking-search');
+
+    let heroMarkup = currentHero;
+    if (!currentHero.includes('data-qelvaron-tracking-search')) {
+      heroMarkup = currentHero.replace(
+        /<a\b(?=[^>]*\bclass=["'][^"']*\bsecondary-button\b[^"']*["'])[^>]*>[\s\S]*?<\/a>/gi,
+        (anchor) => {
+          const label = anchor.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+          if (!/Contact Qelvaron/i.test(label)) return anchor;
+          nextId += 1;
+          return trackingSearchMarkup(
+            `qelvaron-hero-tracking-${nextId}`,
+            'qelvaron-home-tracking-search',
+            'qelvaron-tracking-search-form qelvaron-hero-tracking-form',
+            'Track shipment',
+          );
+        },
+      );
+    }
+
+    result += html.slice(cursor, hero.index) + heroMarkup;
+    cursor = heroEnd;
+    heroPattern.lastIndex = heroEnd;
+  }
+
+  if (wrapperCount === 0) {
+    throw new Error(`Could not find the home hero in ${pagePath}`);
+  }
+
+  result += html.slice(cursor);
+  if (nextId === 0 && !existingSearch) {
+    throw new Error(`Could not find the hero contact button in ${pagePath}`);
+  }
+
+  return result;
+}
+
+function normalizeHeaderQuoteCta(html) {
+  const navButtons = /<div\b(?=[^>]*\bclass=["'][^"']*\bnav-buttons-wrap\b[^"']*["'])[^>]*>/i.exec(
+    html,
+  );
+  if (!navButtons) return html;
+
+  const anchor = /<a\b(?=[^>]*\bclass=["'][^"']*\bprimary-button\b[^"']*["'])[^>]*>[\s\S]*?<\/a>/i.exec(
+    html.slice(navButtons.index + navButtons[0].length),
+  );
+  if (!anchor) return html;
+
+  const updated = anchor[0]
+    .replace(/\bhref=(["'])[^"']*\1/i, 'href="/contact/"')
+    .replace(/\baria-label=(["'])Contact us\1/i, 'aria-label="Get Quote"')
+    .replace(/Contact us/gi, 'Get Quote');
+  const anchorStart = navButtons.index + navButtons[0].length + anchor.index;
+  return html.slice(0, anchorStart) + updated + html.slice(anchorStart + anchor[0].length);
 }
 
 function localizeThemeLinks(html) {
@@ -203,7 +589,10 @@ function localizeThemeLinks(html) {
     ['how-it-works', '/how-it-works/'],
     ['blog', '/blog/'],
     ['career', '/career/'],
-    ['tracking', '/#tracking'],
+    ['tracking', '/tracking/'],
+    ['privacy-policy', '/privacy-policy/'],
+    ['terms-of-use', '/terms-and-conditions/'],
+    ['terms-and-conditions', '/terms-and-conditions/'],
   ]);
 
   return html.replace(
@@ -215,14 +604,14 @@ function localizeThemeLinks(html) {
       let localPath = '/';
 
       if (first === 'tracking' || url.hash.toLowerCase() === '#tracking') {
-        localPath = '/#tracking';
+        localPath = '/tracking/';
       } else if (routeMap.has(first)) {
         localPath = routeMap.get(first);
       } else if (!first) {
         localPath = '/';
       }
 
-      if (url.hash && localPath !== '/#tracking') {
+      if (url.hash) {
         localPath += url.hash;
       }
 
@@ -232,23 +621,52 @@ function localizeThemeLinks(html) {
 }
 
 function updatePageTitle(html, pagePath) {
-  const title =
-    pagePath === 'public/blog/index.html'
-      ? 'Blog | Qelvaron Global Logistics'
-      : pagePath === 'public/career/index.html'
-        ? 'Career | Qelvaron Global Logistics'
-        : null;
-  if (!title) return html;
+  const metadata = {
+    'public/blog/index.html': {
+      title: 'Blog | Qelvaron Global Logistics',
+      description: 'Logistics insights and industry updates from Qelvaron Global Logistics.',
+    },
+    'public/career/index.html': {
+      title: 'Career | Qelvaron Global Logistics',
+      description: 'Learn about careers and opportunities with Qelvaron Global Logistics.',
+    },
+    'public/tracking/index.html': {
+      title: 'Shipment Tracking | Qelvaron Global Logistics',
+      description: 'Shipment tracking information and support from Qelvaron Global Logistics.',
+    },
+    'public/privacy-policy/index.html': {
+      title: 'Privacy Policy | Qelvaron Global Logistics',
+      description: 'Privacy information for visitors to the Qelvaron Global Logistics website.',
+    },
+    'public/terms-and-conditions/index.html': {
+      title: 'Terms & Conditions | Qelvaron Global Logistics',
+      description: 'Website terms and conditions for Qelvaron Global Logistics.',
+    },
+  }[pagePath];
+  if (!metadata) return html;
 
   const updatedTitle = html.replace(
     /<title\b[^>]*>[\s\S]*?<\/title>/i,
-    `<title>${title}</title>`,
+    `<title>${metadata.title}</title>`,
   );
   return updatedTitle.replace(/<meta\b[^>]*>/gi, (tag) => {
-    if (!/\b(?:property|name)=["'](?:og:title|twitter:title)["']/i.test(tag)) {
-      return tag;
+    if (/\b(?:property|name)=["'](?:og:title|twitter:title)["']/i.test(tag)) {
+      return tag.replace(
+        /\bcontent=(["'])[^"']*\1/i,
+        `content="${metadata.title}"`,
+      );
     }
-    return tag.replace(/\bcontent=(["'])[^"']*\1/i, `content="${title}"`);
+    if (
+      /\bname=["']description["']/i.test(tag) ||
+      /\bproperty=["']og:description["']/i.test(tag) ||
+      /\bname=["']twitter:description["']/i.test(tag)
+    ) {
+      return tag.replace(
+        /\bcontent=(["'])[^"']*\1/i,
+        `content="${metadata.description}"`,
+      );
+    }
+    return tag;
   });
 }
 
@@ -291,16 +709,26 @@ for (const pagePath of pagePaths) {
       /<meta\b(?=[^>]*\bproperty=["']og:url["'])[^>]*>/gi,
       '',
     );
+  if (pagePath === 'index.html') {
+    normalized = removeSectionById(normalized, 'tracking', pagePath);
+  }
+  normalized = replaceSharedChrome(normalized, pagePath);
   normalized = updatePageTitle(normalized, pagePath);
   normalized = normalizeBrand(normalized);
   normalized = normalizeNavigation(normalized, pagePath);
+  normalized = normalizeHeaderQuoteCta(normalized);
+  if (pagePath === 'index.html') {
+    normalized = normalizeHomeHeroTrackingSearch(normalized, pagePath);
+  }
   normalized = localizeThemeLinks(normalized)
+    .replace(/\bhref=(["'])\/?#tracking\1/gi, 'href="/tracking/"')
     .replace(/https?:\/\/carrgoflow\.webflow\.io/gi, '')
     .replace(/CarrgoFlow/gi, 'Qelvaron')
     .replace(/Cargoflow/gi, 'Qelvaron')
     .replace(/\bGoflow\b/gi, 'Qelvaron')
     .replace(/<link\b(?=[^>]*\brel=["']canonical["'])[^>]*>/gi, '');
   normalized = removeThemeStylesheets(normalized);
+  normalized = normalizeLegalFooterLinks(normalized);
   const withoutOldFavicons = normalized.replace(
     /<link\b(?=[^>]*\brel=["'](?:icon|apple-touch-icon)["'])[^>]*>/gi,
     '',
