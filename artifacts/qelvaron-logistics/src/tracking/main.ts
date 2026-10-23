@@ -149,6 +149,50 @@ function renderNotFound() {
   resultRoot.hidden = false;
 }
 
+async function lookupShipment(reference: string, form?: HTMLFormElement) {
+  const normalizedReference = reference.trim().toUpperCase();
+  if (!normalizedReference) {
+    setStatus("Enter a shipment reference to continue.");
+    return;
+  }
+  if (!supabase) {
+    setStatus("Live tracking is not configured yet.");
+    return;
+  }
+
+  const button = form?.querySelector<HTMLButtonElement>(
+    'button[type="submit"], button:not([type])',
+  );
+  if (button) button.disabled = true;
+  setStatus("Checking the shipment reference…");
+  if (resultRoot) resultRoot.hidden = true;
+
+  try {
+    const { data, error } = await supabase.rpc("lookup_shipment", {
+      p_reference: normalizedReference,
+    });
+    if (error) throw error;
+
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) {
+      renderNotFound();
+      setStatus("No shipment was found for that reference.");
+      return;
+    }
+
+    const record = row as TrackingRecord;
+    renderRecord(record);
+    setStatus(
+      `Shipment found · ${record.status}`,
+      record.status.toLowerCase().replaceAll(" ", "-"),
+    );
+  } catch {
+    setStatus("We could not check that reference right now. Please try again shortly.");
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
 function updatePageCopy() {
   const intro = document.querySelector<HTMLElement>(
     ".qelvaron-tracking-card > div > p",
@@ -195,7 +239,7 @@ document
   .forEach((form) => {
     form.addEventListener(
       "submit",
-      async (event) => {
+      (event) => {
         event.preventDefault();
         event.stopImmediatePropagation();
 
@@ -205,44 +249,36 @@ document
           .trim()
           .toUpperCase();
 
-        if (!reference) {
-          setStatus("Enter a shipment reference to continue.");
-          return;
-        }
-        if (!supabase) {
-          setStatus("Live tracking is not configured yet.");
-          return;
-        }
-
-        const button = form.querySelector<HTMLButtonElement>(
-          'button[type="submit"], button:not([type])',
-        );
-        if (button) button.disabled = true;
-        setStatus("Checking the shipment reference…");
-        if (resultRoot) resultRoot.hidden = true;
-
-        try {
-          const { data, error } = await supabase.rpc("lookup_shipment", {
-            p_reference: reference,
-          });
-          if (error) throw error;
-
-          const row = Array.isArray(data) ? data[0] : data;
-          if (!row) {
-            renderNotFound();
-            setStatus("No shipment was found for that reference.");
-            return;
-          }
-
-          const record = row as TrackingRecord;
-          renderRecord(record);
-          setStatus(`Shipment found · ${record.status}`, record.status.toLowerCase().replaceAll(" ", "-"));
-        } catch {
-          setStatus("We could not check that reference right now. Please try again shortly.");
-        } finally {
-          if (button) button.disabled = false;
-        }
+        void lookupShipment(reference, form);
       },
       true,
     );
   });
+
+const initialReference = new URLSearchParams(
+  window.location.hash.replace(/^#/, ""),
+).get("trackingReference");
+
+if (initialReference) {
+  const forms = [
+    ...document.querySelectorAll<HTMLFormElement>(
+      "[data-qelvaron-tracking-search]",
+    ),
+  ];
+  const trackingForm =
+    forms.find((form) => form.closest(".qelvaron-tracking-card")) ?? forms[0];
+
+  forms.forEach((form) => {
+    const input = form.querySelector<HTMLInputElement>(
+      'input[name="trackingReference"]',
+    );
+    if (input) input.value = initialReference;
+  });
+
+  window.history.replaceState(
+    null,
+    "",
+    `${window.location.pathname}${window.location.search}`,
+  );
+  void lookupShipment(initialReference, trackingForm);
+}
