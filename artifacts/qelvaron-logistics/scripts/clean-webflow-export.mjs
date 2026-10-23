@@ -15,6 +15,8 @@ const pagePaths = [
   'public/terms-and-conditions/index.html',
 ];
 const appScript = '<script src="/qelvaron-pages.js" defer></script>';
+const trackingSearchStatus =
+  'Enter a shipment reference to check its latest status.';
 const localStylesheets = [
   '<link href="/assets/qelvaron-webflow.css" rel="stylesheet">',
   '<link href="/assets/qelvaron-nav-overrides.css" rel="stylesheet">',
@@ -510,7 +512,7 @@ function replaceSharedChrome(html, pagePath) {
 }
 
 function trackingSearchMarkup(id, wrapperClass, formClass, buttonLabel) {
-  return `<div class="${wrapperClass}"><form class="${formClass}" role="search" data-qelvaron-tracking-search><label class="qelvaron-sr-only" for="${id}">Shipment or tracking number</label><div class="qelvaron-search-input-wrap"><span class="qelvaron-search-icon" aria-hidden="true">⌕</span><input id="${id}" type="search" name="trackingReference" placeholder="Search or tracking number" autocomplete="off" required></div><button type="submit">${buttonLabel}</button></form><p class="qelvaron-tracking-search-status" data-qelvaron-tracking-status role="status" aria-live="polite">Live tracking is not connected yet.</p></div>`;
+  return `<div class="${wrapperClass}"><form class="${formClass}" role="search" data-qelvaron-tracking-search><label class="qelvaron-sr-only" for="${id}">Shipment or tracking number</label><div class="qelvaron-search-input-wrap"><span class="qelvaron-search-icon" aria-hidden="true">⌕</span><input id="${id}" type="search" name="trackingReference" placeholder="Search or tracking number" autocomplete="off" required></div><button type="submit">${buttonLabel}</button></form><p class="qelvaron-tracking-search-status" data-qelvaron-tracking-status role="status" aria-live="polite">${trackingSearchStatus}</p></div>`;
 }
 
 function matchingDivEnd(html, startIndex, pagePath) {
@@ -549,6 +551,10 @@ function normalizeHomeHeroTrackingSearch(html, pagePath) {
         },
       );
     }
+    heroMarkup = heroMarkup.replace(
+      /(<p\b(?=[^>]*\bdata-qelvaron-tracking-status\b)[^>]*>)[\s\S]*?(<\/p>)/gi,
+      `$1${trackingSearchStatus}$2`,
+    );
 
     result += html.slice(cursor, hero.index) + heroMarkup;
     cursor = heroEnd;
