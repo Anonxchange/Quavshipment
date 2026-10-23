@@ -487,19 +487,33 @@ function replaceSharedChrome(html, pagePath) {
       normalized,
     );
   if (!footerOpening) {
-    throw new Error(`Could not find the site footer in ${pagePath}`);
-  }
+    const isLegalPage =
+      pagePath.startsWith('public/privacy-policy/') ||
+      pagePath.startsWith('public/terms-and-conditions/');
+    const bodyClosing = isLegalPage
+      ? /<\/body\s*>/i.exec(normalized)
+      : null;
 
-  const footerEnd = matchingElementEnd(
-    normalized,
-    footerOpening.index,
-    footerOpening[1],
-    pagePath,
-  );
-  normalized =
-    normalized.slice(0, footerOpening.index) +
-    canonicalChrome.footer +
-    normalized.slice(footerEnd);
+    if (!bodyClosing) {
+      throw new Error(`Could not find the site footer in ${pagePath}`);
+    }
+
+    normalized =
+      normalized.slice(0, bodyClosing.index) +
+      canonicalChrome.footer +
+      normalized.slice(bodyClosing.index);
+  } else {
+    const footerEnd = matchingElementEnd(
+      normalized,
+      footerOpening.index,
+      footerOpening[1],
+      pagePath,
+    );
+    normalized =
+      normalized.slice(0, footerOpening.index) +
+      canonicalChrome.footer +
+      normalized.slice(footerEnd);
+  }
 
   if (
     pagePath.startsWith('public/privacy-policy/') ||
