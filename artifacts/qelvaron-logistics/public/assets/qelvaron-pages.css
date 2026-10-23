@@ -1726,6 +1726,10 @@ body.qelvaron-tracking-page .navbar .hamburger-line {
   background-color: var(--_colors---secondary-200, #17202d) !important;
 }
 
+body.qelvaron-tracking-page .qelvaron-mobile-nav-search {
+  display: none !important;
+}
+
 body.qelvaron-tracking-page .qelvaron-page-main {
   width: 100%;
   margin: 0;
