@@ -22,24 +22,65 @@
         <p>Enter your Qelvaron reference to review the latest status and recorded shipment updates.</p>
       </section>
 
-      <section class="qelvaron-tracking-card" aria-labelledby="tracking-status-title">
-        <div>
-          <h2 id="tracking-status-title">Check a shipment</h2>
-          <p>This preview can look up shipment records saved in this browser. Live carrier tracking is not connected yet.</p>
-          <div class="qelvaron-page-tracking-search">
-            <form class="qelvaron-tracking-search-form" role="search" data-qelvaron-tracking-search>
-              <label class="qelvaron-sr-only" for="qelvaron-tracking-page-reference">Shipment or tracking number</label>
-              <div class="qelvaron-search-input-wrap"><span class="qelvaron-search-icon" aria-hidden="true">⌕</span><input id="qelvaron-tracking-page-reference" type="search" name="trackingReference" placeholder="Enter your tracking number" autocomplete="off" required></div>
-              <button type="submit">Track shipment</button>
-            </form>
-            <p class="qelvaron-tracking-search-status" data-qelvaron-tracking-status role="status" aria-live="polite">Your reference is checked only against this browser’s demo records.</p>
-          </div>
-          <div class="qelvaron-tracking-result" data-qelvaron-tracking-result hidden aria-live="polite"></div>
-          <div class="qelvaron-tracking-next">
-            <a class="qelvaron-tracking-button" href="/contact/">Contact Qelvaron</a>
+      <section class="qelvaron-tracking-workspace" aria-label="Shipment tracking">
+        <div class="qelvaron-tracking-column qelvaron-tracking-column-overview">
+          <section class="qelvaron-tracking-card qelvaron-tracking-search-card" aria-labelledby="tracking-status-title">
+            <div class="qelvaron-tracking-card-copy">
+              <p class="qelvaron-page-eyebrow">Shipment lookup</p>
+              <h2 id="tracking-status-title">Check a shipment</h2>
+              <p>Enter the Qelvaron reference provided for your shipment to view its latest recorded progress.</p>
+              <div class="qelvaron-page-tracking-search">
+                <form class="qelvaron-tracking-search-form" role="search" data-qelvaron-tracking-search>
+                  <label class="qelvaron-sr-only" for="qelvaron-tracking-page-reference">Shipment or tracking number</label>
+                  <div class="qelvaron-search-input-wrap"><span class="qelvaron-search-icon" aria-hidden="true">⌕</span><input id="qelvaron-tracking-page-reference" type="search" name="trackingReference" placeholder="Enter your tracking number" autocomplete="off" required></div>
+                  <button type="submit">Track shipment</button>
+                </form>
+                <p class="qelvaron-tracking-search-status" data-qelvaron-tracking-status role="status" aria-live="polite">Your reference is checked securely against available shipment records.</p>
+              </div>
+              <div class="qelvaron-tracking-next">
+                <a class="qelvaron-tracking-button" href="/contact/">Contact Qelvaron</a>
+              </div>
+            </div>
+          </section>
+          <div class="qelvaron-tracking-overview" data-qelvaron-tracking-overview>
+            <div class="qelvaron-tracking-panel-empty">
+              <span class="qelvaron-tracking-empty-mark" aria-hidden="true"></span>
+              <p>Shipment status and progress will appear here after you search.</p>
+            </div>
+            <div class="qelvaron-tracking-result" data-qelvaron-tracking-result hidden aria-live="polite"></div>
           </div>
         </div>
-        <span class="qelvaron-tracking-status">Local preview</span>
+
+        <div class="qelvaron-tracking-column qelvaron-tracking-column-route">
+          <section class="qelvaron-tracking-map-panel" aria-labelledby="tracking-map-title">
+            <div class="qelvaron-tracking-panel-heading">
+              <div>
+                <p class="qelvaron-page-eyebrow">Route overview</p>
+                <h2 id="tracking-map-title">Shipment route</h2>
+              </div>
+              <span class="qelvaron-map-caption">Map view</span>
+            </div>
+            <div class="qelvaron-tracking-map" data-qelvaron-tracking-map data-qelvaron-tracking-image aria-label="Shipment route map will appear after a tracking reference is entered" aria-live="polite">
+              <div class="qelvaron-map-placeholder" aria-hidden="true">
+                <span class="qelvaron-map-route-line"></span>
+                <span class="qelvaron-map-pin qelvaron-map-pin-start"></span>
+                <span class="qelvaron-map-pin qelvaron-map-pin-end"></span>
+                <span class="qelvaron-map-placeholder-copy">Route map appears with shipment details</span>
+              </div>
+            </div>
+          </section>
+          <section class="qelvaron-tracking-updates-panel" aria-labelledby="tracking-updates-title">
+            <div class="qelvaron-tracking-panel-heading">
+              <div>
+                <p class="qelvaron-page-eyebrow">Shipment activity</p>
+                <h2 id="tracking-updates-title">Recent updates</h2>
+              </div>
+            </div>
+            <div class="qelvaron-tracking-updates" data-qelvaron-tracking-updates aria-live="polite">
+              <p class="qelvaron-tracking-updates-empty">Recorded shipment updates will appear here after you search.</p>
+            </div>
+          </section>
+        </div>
       </section>
 
       <section class="qelvaron-tracking-faq" aria-labelledby="tracking-faq-title">
