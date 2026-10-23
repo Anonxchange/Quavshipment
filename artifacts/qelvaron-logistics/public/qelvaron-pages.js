@@ -7,6 +7,10 @@ document.addEventListener(
     }
 
     if (form.matches('[data-qelvaron-tracking-search]')) {
+      if (document.querySelector('[data-qelvaron-tracking-result]')) {
+        return;
+      }
+
       event.preventDefault();
       event.stopImmediatePropagation();
 
@@ -15,13 +19,20 @@ document.addEventListener(
       );
       const reference = String(
         new FormData(form).get('trackingReference') ?? '',
-      ).trim();
+      ).trim().toUpperCase();
 
-      if (status) {
-        status.textContent = reference
-          ? 'Live tracking is not connected yet. Your reference was not sent or saved. Contact your Qelvaron representative for an update.'
-          : 'Enter a shipment reference to continue.';
+      if (!reference) {
+        if (status) status.textContent = 'Enter a shipment reference to continue.';
+        return;
       }
+
+      if (status) status.textContent = 'Opening secure shipment lookup…';
+
+      const trackingUrl = new URL('/tracking/', window.location.href);
+      trackingUrl.hash = new URLSearchParams({
+        trackingReference: reference,
+      }).toString();
+      window.location.assign(trackingUrl.toString());
       return;
     }
 
