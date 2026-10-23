@@ -1,4 +1,5 @@
 import { supabase, supabaseConfigured } from "@/lib/supabase";
+import { fetchShipmentMap } from "@/lib/edge-functions";
 
 type TrackingEvent = {
   status: string;
@@ -25,9 +26,20 @@ type TrackingRecord = {
 const resultRoot = document.querySelector<HTMLElement>(
   "[data-qelvaron-tracking-result]",
 );
+const overviewRoot = document.querySelector<HTMLElement>(
+  "[data-qelvaron-tracking-overview]",
+);
+const mapRoot = document.querySelector<HTMLElement>(
+  "[data-qelvaron-tracking-map]",
+);
+const updatesRoot = document.querySelector<HTMLElement>(
+  "[data-qelvaron-tracking-updates]",
+);
 const statusLabels = document.querySelectorAll<HTMLElement>(
   "[data-qelvaron-tracking-status]",
 );
+let mapRequestVersion = 0;
+let activeMapObjectUrl: string | null = null;
 
 function setStatus(message: string, state?: string) {
   statusLabels.forEach((label) => {
@@ -74,79 +86,260 @@ function routeItem(label: string, value: string) {
   return item;
 }
 
-function renderRecord(record: TrackingRecord) {
+const progressSteps = [
+  { label: "Order received", statuses: ["booked", "pending"] },
+  { label: "Picked up", statuses: ["picked up"] },
+  { label: "In transit", statuses: ["in transit", "stopover", "delayed", "exception"] },
+  { label: "Customs", statuses: ["held by customs"] },
+  { label: "Out for delivery", statuses: ["out for delivery", "failed delivery"] },
+  { label: "Delivered", statuses: ["delivered"] },
+];
+
+function normalizedStatus(value: string) {
+  return value.trim().toLowerCase().replace(/[_-]+/g, " ");
+}
+
+function progressIndex(status: string) {
+  const normalized = normalizedStatus(status);
+  const stepIndex = progressSteps.findIndex((step) =>
+    step.statuses.includes(normalized),
+  );
+  return stepIndex < 0 ? 0 : stepIndex;
+}
+
+function renderOverview(record: TrackingRecord, updates: TrackingEvent[]) {
   if (!resultRoot) return;
 
-  const card = makeElement("article", "qelvaron-track-result");
+  const overview = makeElement("article", "qelvaron-track-result");
   const header = makeElement("header", "qelvaron-track-result-head");
-  const titleBlock = makeElement("div", "");
-  titleBlock.append(
+  const reference = makeElement("div", "qelvaron-track-reference");
+  reference.append(
     makeElement("p", "qelvaron-page-eyebrow", "Tracking reference"),
     makeElement("h2", "", record.tracking_number),
   );
   const badge = makeElement("span", "qelvaron-tracking-status", record.status);
-  badge.dataset.state = record.status.toLowerCase().replaceAll(" ", "-");
-  header.append(titleBlock, badge);
+  badge.dataset.state = normalizedStatus(record.status).replaceAll(" ", "-");
+  header.append(reference, badge);
 
-  const route = makeElement("div", "qelvaron-track-route");
-  route.append(
-    routeItem("Origin", [record.origin_city, record.origin_country].filter(Boolean).join(", ")),
-    makeElement("span", "", "→"),
-    routeItem("Destination", [record.destination_city, record.destination_country].filter(Boolean).join(", ")),
-    routeItem("Transport", [record.mode, record.carrier].filter(Boolean).join(" · ")),
-    routeItem("Estimated delivery", dateLabel(record.estimated_delivery)),
+  const latestUpdate = updates[0];
+  const summary = makeElement("div", "qelvaron-track-route");
+  summary.append(
+    routeItem(
+      "Origin",
+      [record.origin_city, record.origin_country].filter(Boolean).join(", "),
+    ),
+    makeElement("span", "qelvaron-track-route-arrow", "→"),
+    routeItem(
+      "Destination",
+      [record.destination_city, record.destination_country].filter(Boolean).join(", "),
+    ),
+    routeItem(
+      "Latest location",
+      latestUpdate?.location || "Not recorded yet",
+    ),
+    routeItem(
+      "Estimated delivery",
+      dateLabel(record.estimated_delivery),
+    ),
   );
 
-  const history = makeElement("section", "qelvaron-track-history");
-  const sectionHeading = makeElement("div", "qelvaron-track-section-head");
-  sectionHeading.append(
-    makeElement("h3", "", "Shipment updates"),
-    makeElement("span", "", `${record.updates.length} recorded ${record.updates.length === 1 ? "update" : "updates"}`),
-  );
-  history.append(sectionHeading);
+  const progress = makeElement("section", "qelvaron-track-progress-section");
+  progress.setAttribute("aria-label", "Shipment progress");
+  progress.append(makeElement("h3", "", "Shipment progress"));
+  const steps = makeElement("ol", "qelvaron-track-progress");
+  const currentIndex = progressIndex(record.status);
 
-  if (record.updates.length === 0) {
-    const empty = makeElement("div", "qelvaron-track-result-empty");
-    empty.append(
-      makeElement("h2", "", record.status),
-      makeElement("p", "", "The shipment is on file. No location updates have been posted yet."),
+  progressSteps.forEach((step, index) => {
+    const item = makeElement("li", "qelvaron-track-progress-step");
+    item.dataset.state =
+      index < currentIndex ? "complete" : index === currentIndex ? "current" : "upcoming";
+
+    const marker = makeElement(
+      "span",
+      "qelvaron-track-progress-mark",
+      index < currentIndex ? "✓" : String(index + 1),
     );
-    history.append(empty);
-  } else {
-    const timeline = makeElement("ol", "qelvaron-track-timeline");
-    for (const event of record.updates) {
-      const item = makeElement("li", "qelvaron-track-event");
-      const copy = makeElement("div", "");
-      const eventHeading = makeElement("div", "qelvaron-track-event-head");
-      eventHeading.append(
-        makeElement("strong", "", event.status),
-        makeElement("time", "", dateTimeLabel(event.timestamp)),
-      );
-      copy.append(
-        eventHeading,
-        makeElement("p", "qelvaron-track-event-location", event.location),
-      );
-      if (event.description) copy.append(makeElement("p", "", event.description));
-      item.append(makeElement("span", "qelvaron-track-event-mark"), copy);
-      timeline.append(item);
-    }
-    history.append(timeline);
+    marker.setAttribute("aria-hidden", "true");
+    item.append(marker, makeElement("span", "qelvaron-track-progress-label", step.label));
+    steps.append(item);
+  });
+
+  progress.append(steps);
+  overview.append(header, summary, progress);
+  resultRoot.replaceChildren(overview);
+  resultRoot.hidden = false;
+  overviewRoot
+    ?.querySelector<HTMLElement>(".qelvaron-tracking-panel-empty")
+    ?.setAttribute("hidden", "");
+}
+
+function renderUpdates(updates: TrackingEvent[]) {
+  if (!updatesRoot) return;
+  updatesRoot.replaceChildren();
+
+  if (updates.length === 0) {
+    updatesRoot.append(
+      makeElement(
+        "p",
+        "qelvaron-tracking-updates-empty",
+        "The shipment is on file. No location updates have been posted yet.",
+      ),
+    );
+    return;
   }
 
-  card.append(header, route, history);
-  resultRoot.replaceChildren(card);
-  resultRoot.hidden = false;
+  const timeline = makeElement("ol", "qelvaron-track-timeline");
+  for (const event of updates) {
+    const item = makeElement("li", "qelvaron-track-event");
+    const copy = makeElement("div", "qelvaron-track-event-copy");
+    const eventHeading = makeElement("div", "qelvaron-track-event-head");
+    eventHeading.append(
+      makeElement("strong", "", event.status),
+      makeElement("time", "", dateTimeLabel(event.timestamp)),
+    );
+    copy.append(
+      eventHeading,
+      makeElement("p", "qelvaron-track-event-location", event.location),
+    );
+    if (event.description) copy.append(makeElement("p", "", event.description));
+    item.append(makeElement("span", "qelvaron-track-event-mark"), copy);
+    timeline.append(item);
+  }
+
+  updatesRoot.append(timeline);
+}
+
+async function renderMap(trackingReference: string, requestVersion: number) {
+  if (!mapRoot) return;
+  if (activeMapObjectUrl) {
+    URL.revokeObjectURL(activeMapObjectUrl);
+    activeMapObjectUrl = null;
+  }
+  mapRoot.replaceChildren(
+    makeElement("p", "qelvaron-map-loading", "Loading the shipment route…"),
+  );
+  mapRoot.setAttribute(
+    "aria-label",
+    `Loading route map for shipment ${trackingReference}`,
+  );
+
+  try {
+    const imageBlob = await fetchShipmentMap(trackingReference);
+    if (requestVersion !== mapRequestVersion) return;
+
+    const imageUrl = URL.createObjectURL(imageBlob);
+    if (activeMapObjectUrl) URL.revokeObjectURL(activeMapObjectUrl);
+    activeMapObjectUrl = imageUrl;
+
+    const image = makeElement("img", "qelvaron-tracking-map-image");
+    image.src = imageUrl;
+    image.alt = `Map showing the route for shipment ${trackingReference}`;
+    image.loading = "lazy";
+    mapRoot.replaceChildren(image);
+    mapRoot.setAttribute(
+      "aria-label",
+      `Route map for shipment ${trackingReference}`,
+    );
+  } catch (error) {
+    if (requestVersion !== mapRequestVersion) return;
+    const message =
+      error instanceof Error
+        ? error.message
+        : "The shipment route map is unavailable right now.";
+    mapRoot.replaceChildren(
+      makeElement("p", "qelvaron-map-error", message),
+    );
+    mapRoot.setAttribute("aria-label", "Shipment route map unavailable");
+  }
+}
+
+function renderRecord(record: TrackingRecord) {
+  const updates = Array.isArray(record.updates)
+    ? [...record.updates].sort(
+        (a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp),
+      )
+    : [];
+
+  renderOverview(record, updates);
+  renderUpdates(updates);
+  const requestVersion = ++mapRequestVersion;
+  void renderMap(record.tracking_number, requestVersion);
 }
 
 function renderNotFound() {
-  if (!resultRoot) return;
-  const empty = makeElement("div", "qelvaron-track-result qelvaron-track-result-empty");
-  empty.append(
-    makeElement("h2", "", "No shipment found"),
-    makeElement("p", "", "Check the reference and try again. If it still does not appear, contact Qelvaron for help."),
+  if (resultRoot) {
+    const empty = makeElement(
+      "div",
+      "qelvaron-track-result qelvaron-track-result-empty",
+    );
+    empty.append(
+      makeElement("h2", "", "No shipment found"),
+      makeElement("p", "", "Check the reference and try again. If it still does not appear, contact Qelvaron for help."),
+    );
+    resultRoot.replaceChildren(empty);
+    resultRoot.hidden = false;
+    overviewRoot
+      ?.querySelector<HTMLElement>(".qelvaron-tracking-panel-empty")
+      ?.setAttribute("hidden", "");
+  }
+
+  mapRequestVersion += 1;
+  if (activeMapObjectUrl) {
+    URL.revokeObjectURL(activeMapObjectUrl);
+    activeMapObjectUrl = null;
+  }
+  mapRoot?.replaceChildren(
+    makeElement("p", "qelvaron-map-error", "A route map is available after a shipment is found."),
   );
-  resultRoot.replaceChildren(empty);
-  resultRoot.hidden = false;
+  updatesRoot?.replaceChildren(
+    makeElement("p", "qelvaron-tracking-updates-empty", "No shipment updates are available."),
+  );
+}
+
+function showTrackingLoading() {
+  if (resultRoot) resultRoot.hidden = true;
+  const placeholder = overviewRoot?.querySelector<HTMLElement>(
+    ".qelvaron-tracking-panel-empty",
+  );
+  placeholder?.removeAttribute("hidden");
+  const placeholderCopy = placeholder?.querySelector("p");
+  if (placeholderCopy) {
+    placeholderCopy.textContent = "Checking the reference and loading shipment details…";
+  }
+
+  mapRequestVersion += 1;
+  if (activeMapObjectUrl) {
+    URL.revokeObjectURL(activeMapObjectUrl);
+    activeMapObjectUrl = null;
+  }
+  mapRoot?.replaceChildren(
+    makeElement("p", "qelvaron-map-loading", "Loading the shipment route…"),
+  );
+  updatesRoot?.replaceChildren(
+    makeElement("p", "qelvaron-tracking-updates-empty", "Loading shipment updates…"),
+  );
+}
+
+function renderLookupError() {
+  if (resultRoot) {
+    const errorCard = makeElement("div", "qelvaron-track-result qelvaron-track-result-empty");
+    errorCard.append(
+      makeElement("h2", "", "Tracking is temporarily unavailable"),
+      makeElement("p", "", "Please try again shortly. Your shipment reference has not been changed."),
+    );
+    resultRoot.replaceChildren(errorCard);
+    resultRoot.hidden = false;
+    overviewRoot
+      ?.querySelector<HTMLElement>(".qelvaron-tracking-panel-empty")
+      ?.setAttribute("hidden", "");
+  }
+  mapRequestVersion += 1;
+  mapRoot?.replaceChildren(
+    makeElement("p", "qelvaron-map-error", "The shipment route map is unavailable right now."),
+  );
+  updatesRoot?.replaceChildren(
+    makeElement("p", "qelvaron-tracking-updates-empty", "Shipment updates could not be loaded."),
+  );
 }
 
 async function lookupShipment(reference: string, form?: HTMLFormElement) {
@@ -165,7 +358,7 @@ async function lookupShipment(reference: string, form?: HTMLFormElement) {
   );
   if (button) button.disabled = true;
   setStatus("Checking the shipment reference…");
-  if (resultRoot) resultRoot.hidden = true;
+  showTrackingLoading();
 
   try {
     const { data, error } = await supabase.rpc("lookup_shipment", {
@@ -188,6 +381,7 @@ async function lookupShipment(reference: string, form?: HTMLFormElement) {
     );
   } catch {
     setStatus("We could not check that reference right now. Please try again shortly.");
+    renderLookupError();
   } finally {
     if (button) button.disabled = false;
   }
@@ -195,22 +389,17 @@ async function lookupShipment(reference: string, form?: HTMLFormElement) {
 
 function updatePageCopy() {
   const intro = document.querySelector<HTMLElement>(
-    ".qelvaron-tracking-card > div > p",
+    ".qelvaron-tracking-card-copy > p:not(.qelvaron-page-eyebrow)",
   );
   if (intro) {
     intro.textContent =
       "Enter your Qelvaron reference to see the latest shipment status and customer-visible updates.";
   }
 
-  const badge = document.querySelector<HTMLElement>(
-    ".qelvaron-tracking-card > .qelvaron-tracking-status",
-  );
-  if (badge) badge.textContent = "Secure lookup";
-
   const note = document.querySelector<HTMLElement>(".qelvaron-tracking-note");
   if (note) {
     note.textContent =
-      "This page shows a limited tracking summary. It does not reveal sender or recipient contact information, payment details, or internal notes.";
+      "Public tracking shows a limited route and status summary. It does not reveal sender or recipient contact information, payment details, or internal notes.";
   }
 
   const faqAnswers = document.querySelectorAll<HTMLElement>(
@@ -219,7 +408,7 @@ function updatePageCopy() {
   const answers = [
     "Use the Qelvaron reference shared with you for this shipment.",
     "Check the reference for typing errors. Public tracking displays only a limited route and status summary.",
-    "The page shows updates as soon as an operator records them. Carrier feeds are not connected.",
+    "The page shows updates as soon as an operator records them. Mapbox displays the recorded route and latest reported location; carrier feeds are not connected.",
   ];
   faqAnswers.forEach((answer, index) => {
     if (answers[index]) answer.textContent = answers[index];
