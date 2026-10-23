@@ -1133,6 +1133,333 @@
   line-height: 1.6;
 }
 
+/* Tracking workspace: restrained two-column layout using the existing Qelvaron palette. */
+.qelvaron-tracking-page .qelvaron-page-main {
+  width: min(100% - 48px, 1320px);
+}
+
+.qelvaron-tracking-page .qelvaron-tracking-hero {
+  margin: 34px 0 22px;
+  padding: clamp(30px, 5vw, 54px) clamp(26px, 5vw, 62px);
+}
+
+.qelvaron-tracking-workspace {
+  display: grid;
+  grid-template-columns: minmax(340px, 0.88fr) minmax(0, 1.12fr);
+  align-items: start;
+  gap: 22px;
+  margin: 0 0 40px;
+}
+
+.qelvaron-tracking-column {
+  display: grid;
+  min-width: 0;
+  gap: 18px;
+}
+
+.qelvaron-tracking-search-card,
+.qelvaron-tracking-map-panel,
+.qelvaron-tracking-updates-panel,
+.qelvaron-tracking-overview {
+  min-width: 0;
+  border: 1px solid var(--_colors---border-300, #e2e5e9);
+  border-radius: 9px;
+  background: var(--_colors---primary-100, #fff);
+  box-shadow: 0 10px 28px rgb(16 25 35 / 4%);
+}
+
+.qelvaron-tracking-search-card {
+  display: block;
+  padding: clamp(22px, 3vw, 32px);
+}
+
+.qelvaron-tracking-card-copy h2,
+.qelvaron-tracking-panel-heading h2 {
+  margin: 0;
+  color: var(--_colors---secondary-200, #17202d);
+  font-family: var(--font-family--aspekta, inherit);
+  font-size: clamp(20px, 2.2vw, 25px);
+  font-weight: var(--font-weight--medium, 600);
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.qelvaron-tracking-card-copy > p:not(.qelvaron-page-eyebrow) {
+  max-width: 520px;
+  margin: 11px 0 0;
+  color: var(--_colors---dark-100, #657080);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.qelvaron-tracking-page .qelvaron-page-tracking-search {
+  width: 100%;
+  margin-top: 21px;
+}
+
+.qelvaron-tracking-page .qelvaron-tracking-search-form {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.qelvaron-tracking-page .qelvaron-search-input-wrap {
+  min-height: 52px;
+  border-radius: 5px;
+}
+
+.qelvaron-tracking-page .qelvaron-tracking-search-form input {
+  height: 50px;
+}
+
+.qelvaron-tracking-page .qelvaron-tracking-search-form button {
+  min-height: 48px;
+  border-radius: 5px;
+}
+
+.qelvaron-tracking-page .qelvaron-tracking-search-status {
+  margin-top: 9px;
+  font-size: 12px;
+}
+
+.qelvaron-tracking-page .qelvaron-tracking-next {
+  margin-top: 19px;
+}
+
+.qelvaron-tracking-overview {
+  overflow: hidden;
+  min-height: 116px;
+}
+
+.qelvaron-tracking-panel-empty {
+  display: flex;
+  min-height: 116px;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 24px;
+}
+
+.qelvaron-tracking-panel-empty p,
+.qelvaron-tracking-updates-empty {
+  margin: 0;
+  color: var(--_colors---dark-100, #657080);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.qelvaron-tracking-empty-mark {
+  position: relative;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #f3c7b6;
+  border-radius: 50%;
+  background: #fff6f2;
+}
+
+.qelvaron-tracking-empty-mark::before,
+.qelvaron-tracking-empty-mark::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 1px;
+  background: #e95622;
+  content: "";
+  transform: translate(-50%, -50%);
+}
+
+.qelvaron-tracking-empty-mark::after {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.qelvaron-tracking-overview:has(.qelvaron-tracking-result:not([hidden])) .qelvaron-tracking-panel-empty {
+  display: none;
+}
+
+.qelvaron-tracking-overview:has(.qelvaron-tracking-result:not([hidden])) {
+  min-height: 0;
+}
+
+.qelvaron-tracking-map-panel,
+.qelvaron-tracking-updates-panel {
+  overflow: hidden;
+}
+
+.qelvaron-tracking-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 21px 24px 18px;
+}
+
+.qelvaron-tracking-panel-heading .qelvaron-page-eyebrow {
+  margin-bottom: 7px;
+  font-size: 10px;
+}
+
+.qelvaron-tracking-panel-heading h2 {
+  font-size: 19px;
+}
+
+.qelvaron-map-caption {
+  padding: 6px 9px;
+  border: 1px solid #e5e8eb;
+  border-radius: 3px;
+  color: #67717d;
+  background: #f8f9fa;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.qelvaron-tracking-map {
+  position: relative;
+  min-height: 300px;
+  overflow: hidden;
+  border-top: 1px solid #e8ebee;
+  background-color: #e9edf0;
+  background-image:
+    linear-gradient(32deg, transparent 47%, rgb(255 255 255 / 77%) 48%, rgb(255 255 255 / 77%) 49%, transparent 50%),
+    linear-gradient(145deg, transparent 47%, rgb(255 255 255 / 75%) 48%, rgb(255 255 255 / 75%) 49%, transparent 50%),
+    linear-gradient(90deg, rgb(211 219 223 / 40%) 1px, transparent 1px),
+    linear-gradient(0deg, rgb(211 219 223 / 40%) 1px, transparent 1px);
+  background-size: 270px 210px, 320px 250px, 38px 38px, 38px 38px;
+}
+
+.qelvaron-map-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(ellipse at 24% 32%, rgb(255 255 255 / 64%), transparent 30%),
+    radial-gradient(ellipse at 78% 72%, rgb(255 255 255 / 52%), transparent 33%);
+}
+
+.qelvaron-map-route-line {
+  position: absolute;
+  top: 48%;
+  left: 24%;
+  width: 51%;
+  height: 2px;
+  border-top: 2px dashed #e95622;
+  transform: rotate(-13deg);
+}
+
+.qelvaron-map-pin {
+  position: absolute;
+  top: 47%;
+  width: 13px;
+  height: 13px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: #e95622;
+  box-shadow: 0 1px 5px rgb(23 32 45 / 26%);
+}
+
+.qelvaron-map-pin-start {
+  left: 23%;
+}
+
+.qelvaron-map-pin-end {
+  top: 36%;
+  right: 24%;
+}
+
+.qelvaron-map-placeholder-copy {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  padding: 8px 11px;
+  border: 1px solid rgb(218 223 226 / 85%);
+  border-radius: 3px;
+  color: #596472;
+  background: rgb(255 255 255 / 92%);
+  font-size: 11px;
+}
+
+.qelvaron-tracking-updates {
+  min-height: 94px;
+  padding: 0 24px 22px;
+}
+
+.qelvaron-tracking-updates-empty {
+  padding-top: 17px;
+  border-top: 1px solid #e9ecef;
+}
+
+.qelvaron-tracking-page .qelvaron-tracking-faq {
+  margin-top: 36px;
+}
+
+.qelvaron-tracking-page .qelvaron-tracking-note {
+  margin-bottom: 34px;
+}
+
+@media (max-width: 900px) {
+  .qelvaron-tracking-workspace {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+  }
+}
+
+@media (max-width: 700px) {
+  .qelvaron-tracking-page .qelvaron-page-main {
+    width: min(100% - 32px, 560px);
+  }
+
+  .qelvaron-tracking-page .qelvaron-tracking-hero {
+    margin: 22px 0 16px;
+    padding: 30px 24px;
+  }
+
+  .qelvaron-tracking-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    margin-bottom: 30px;
+  }
+
+  .qelvaron-tracking-column-overview {
+    display: contents;
+  }
+
+  .qelvaron-tracking-search-card {
+    order: 1;
+  }
+
+  .qelvaron-tracking-overview {
+    order: 2;
+  }
+
+  .qelvaron-tracking-column-route {
+    display: contents;
+  }
+
+  .qelvaron-tracking-map-panel {
+    order: 3;
+  }
+
+  .qelvaron-tracking-updates-panel {
+    order: 4;
+  }
+
+  .qelvaron-tracking-map {
+    min-height: 250px;
+  }
+
+  .qelvaron-tracking-search-card,
+  .qelvaron-tracking-panel-heading {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  .qelvaron-tracking-page .qelvaron-tracking-faq {
+    margin-top: 26px;
+  }
+}
+
 .qelvaron-cookie-banner {
   position: fixed;
   z-index: 50;
@@ -1145,6 +1472,50 @@
   color: var(--_colors---secondary-200, #17202d);
   background: var(--_colors---primary-100, #fff);
   box-shadow: 0 16px 46px rgb(16 25 35 / 20%);
+}
+
+.qelvaron-track-progress {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px 8px;
+}
+
+.qelvaron-tracking-map-image {
+  display: block;
+  width: 100%;
+  min-height: 250px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.qelvaron-map-loading,
+.qelvaron-map-error {
+  display: grid;
+  min-height: 250px;
+  place-items: center;
+  margin: 0;
+  padding: 24px;
+  color: var(--_colors---dark-100, #657080);
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.qelvaron-map-error {
+  color: var(--_colors---secondary-200, #17202d);
+}
+
+.qelvaron-track-route-arrow {
+  display: block;
+}
+
+@media (max-width: 700px) {
+  .qelvaron-track-progress {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .qelvaron-tracking-map-image {
+    min-height: 220px;
+  }
 }
 
 .qelvaron-cookie-banner-inner {
