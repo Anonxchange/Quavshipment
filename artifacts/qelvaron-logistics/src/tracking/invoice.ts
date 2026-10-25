@@ -22,7 +22,7 @@ const BOOKING_MODE = "To Pay";
 const ASSETS = {
   banner: "/assets/Gemini_Generated_Image_ebk705ebk705ebk7.png",
   stamp: "/assets/Gemini_Generated_Image_3a8m3r3a8m3r3a8m.png",
-  stampDuty: "/assets/IMG_0940.jpeg",
+  stampDuty: "/assets/Gemini_Generated_Image_3a8m3r3a8m3r3a8m.png",
 };
 
 type InvoiceEvent = {
