@@ -513,16 +513,32 @@ function ensureHolders() {
   stopoverHolder = makeElement("div", "qelvaron-live-extras");
   anchor.before(stopoverHolder);
 
-  // Parcel information goes last, just before the FAQ. It borrows the page's own
-  // container classes (if any) so it lines up with the sections around it.
+  // Parcel information goes last, just before the FAQ. It mirrors the exact wrapper chain
+  // (section, container, ...) that the timeline sits in, so it is as wide as the other cards.
   parcelHolder = makeElement("div", "qelvaron-live-extras");
-  const container = updatesRoot.closest<HTMLElement>('[class*="container"]');
-  parcelRow = makeElement(
-    "div",
-    `qelvaron-live-parcel-row ${container?.className ?? "qelvaron-live-parcel-row-plain"}`.trim(),
-  );
+  const chain: HTMLElement[] = [];
+  let node: HTMLElement | null = updatesRoot.parentElement;
+  while (node && node !== document.body && chain.length < 6) {
+    chain.push(node);
+    if (node.tagName === "SECTION") break;
+    node = node.parentElement;
+  }
+  if (!chain.length || chain[chain.length - 1]?.tagName !== "SECTION") chain.length = 0;
+  if (chain.length) {
+    // Rebuild outermost -> innermost, copying tag and classes (not ids).
+    let inner: HTMLElement = parcelHolder;
+    for (const original of chain) {
+      const clone = makeElement(original.tagName.toLowerCase(), original.className);
+      clone.append(inner);
+      inner = clone;
+    }
+    parcelRow = inner;
+    parcelRow.classList.add("qelvaron-live-parcel-row");
+  } else {
+    parcelRow = makeElement("div", "qelvaron-live-parcel-row qelvaron-live-parcel-row-plain");
+    parcelRow.append(parcelHolder);
+  }
   parcelRow.hidden = true;
-  parcelRow.append(parcelHolder);
 
   const faq = document.querySelector<HTMLElement>(".qelvaron-tracking-faq");
   const faqSection = faq?.closest("section") ?? faq;
@@ -926,8 +942,10 @@ async function drawRoute(
     route.destination.label,
   );
   if (current && route.current) {
-    const marker = pinElement("current", transportIcon(record.mode ?? ""), 20);
-    marker.classList.add("qelvaron-live-pin-pulse");
+    const modeIcon = transportIcon(record.mode ?? "");
+    const marker = pinElement("current", modeIcon, 28);
+    marker.classList.add("qelvaron-live-pin-pulse", "qelvaron-live-pin-vehicle");
+    marker.dataset.mode = modeIcon === "plane" ? "Plane" : modeIcon === "ship" ? "Ship" : "Truck";
     activeMarkers.push(
       new mapbox.Marker({ element: marker })
         .setLngLat(current)
@@ -1025,7 +1043,12 @@ async function drawRoute(
     if (point) bounds.extend(point);
   });
   map.resize();
-  map.fitBounds(bounds, { padding: 80, maxZoom: 8, duration: 800 });
+  const compact = window.matchMedia("(max-width: 640px)").matches;
+  map.fitBounds(bounds, {
+    padding: compact ? { top: 70, bottom: 70, left: 45, right: 45 } : 80,
+    maxZoom: 8,
+    duration: 800,
+  });
 
   // Legend ----------------------------------------------------------
   shell.legend.replaceChildren(
