@@ -460,6 +460,7 @@ function renderUpdates(record: TrackingRecord, updates: TrackingEvent[]) {
 
 let stopoverHolder: HTMLElement | null = null;
 let parcelHolder: HTMLElement | null = null;
+let parcelRow: HTMLElement | null = null;
 
 function ensureHolders() {
   if (!updatesRoot || (stopoverHolder && parcelHolder)) return;
@@ -468,14 +469,29 @@ function ensureHolders() {
   if (section && mapRoot && !section.contains(mapRoot)) anchor = section;
 
   stopoverHolder = makeElement("div", "qelvaron-live-extras");
-  parcelHolder = makeElement("div", "qelvaron-live-extras");
   anchor.before(stopoverHolder);
-  anchor.after(parcelHolder);
+
+  // Parcel information goes last, just before the FAQ. It borrows the page's own
+  // container classes (if any) so it lines up with the sections around it.
+  parcelHolder = makeElement("div", "qelvaron-live-extras");
+  const container = updatesRoot.closest<HTMLElement>('[class*="container"]');
+  parcelRow = makeElement(
+    "div",
+    `qelvaron-live-parcel-row ${container?.className ?? "qelvaron-live-parcel-row-plain"}`.trim(),
+  );
+  parcelRow.hidden = true;
+  parcelRow.append(parcelHolder);
+
+  const faq = document.querySelector<HTMLElement>(".qelvaron-tracking-faq");
+  const faqSection = faq?.closest("section") ?? faq;
+  if (faqSection) faqSection.before(parcelRow);
+  else anchor.after(parcelRow);
 }
 
 function clearExtras() {
   stopoverHolder?.replaceChildren();
   parcelHolder?.replaceChildren();
+  if (parcelRow) parcelRow.hidden = true;
 }
 
 function detailRow(label: string, value: string) {
@@ -556,6 +572,7 @@ function renderParcel(record: TrackingRecord, updates: TrackingEvent[]) {
 
   card.append(head, details);
   parcelHolder.replaceChildren(card);
+  if (parcelRow) parcelRow.hidden = false;
 }
 
 /* ------------------------------------------------------------------ */
@@ -705,19 +722,33 @@ function pinElement(kind: string, name: IconName, size = 18) {
   return element;
 }
 
-function popupContent(title: string, text: string) {
+// Mapbox coordinates are [longitude, latitude]; show them as "lat, lng" with N/S/E/W.
+function formatCoordinates(coordinates: [number, number]) {
+  const [lng, lat] = coordinates;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "";
+  const latPart = `${Math.abs(lat).toFixed(4)}° ${lat >= 0 ? "N" : "S"}`;
+  const lngPart = `${Math.abs(lng).toFixed(4)}° ${lng >= 0 ? "E" : "W"}`;
+  return `${latPart}, ${lngPart}`;
+}
+
+function popupContent(title: string, text: string, coordinates?: [number, number]) {
   const content = makeElement("div", "qelvaron-live-popup");
   content.append(makeElement("strong", "", title), makeElement("span", "", text));
+  const coords = coordinates ? formatCoordinates(coordinates) : "";
+  if (coords) content.append(makeElement("span", "qelvaron-live-coords", coords));
   return content;
 }
 
-function legendItem(kind: string, title: string, text: string) {
+function legendItem(kind: string, title: string, text: string, coordinates?: [number, number]) {
   const item = makeElement("div", "qelvaron-live-legend-item");
   item.dataset.kind = kind;
+  const label = makeElement("span", "", text);
+  const coords = coordinates ? formatCoordinates(coordinates) : "";
+  if (coords) label.append(makeElement("small", "qelvaron-live-coords", coords));
   item.append(
     makeElement("span", "qelvaron-live-legend-dot"),
     makeElement("strong", "", title),
-    makeElement("span", "", text),
+    label,
   );
   return item;
 }
@@ -760,7 +791,9 @@ function drawRoute(
   ) => {
     const marker = new mapbox.Marker({ element: pinElement(kind, name, size) })
       .setLngLat(coordinates)
-      .setPopup(new mapbox.Popup({ offset: 26 }).setDOMContent(popupContent(title, text)))
+      .setPopup(
+        new mapbox.Popup({ offset: 26 }).setDOMContent(popupContent(title, text, coordinates)),
+      )
       .addTo(map);
     activeMarkers.push(marker);
   };
@@ -784,7 +817,7 @@ function drawRoute(
         .setLngLat(current)
         .setPopup(
           new mapbox.Popup({ offset: 26 }).setDOMContent(
-            popupContent("Current location", route.current.label),
+            popupContent("Current location", route.current.label, current),
           ),
         )
         .addTo(map),
@@ -872,13 +905,18 @@ function drawRoute(
 
   // Legend ----------------------------------------------------------
   shell.legend.replaceChildren(
-    legendItem("origin", "Origin", route.origin.label),
-    ...(route.stopover ? [legendItem("stopover", "Stopover", route.stopover.label)] : []),
-    ...(current && route.current ? [legendItem("current", "Current", route.current.label)] : []),
+    legendItem("origin", "Origin", route.origin.label, origin),
+    ...(route.stopover && stopover
+      ? [legendItem("stopover", "Stopover", route.stopover.label, stopover)]
+      : []),
+    ...(current && route.current
+      ? [legendItem("current", "Current", route.current.label, current)]
+      : []),
     legendItem(
       delivered ? "delivered" : "destination",
       delivered ? "Delivered" : "Destination",
       route.destination.label,
+      destination,
     ),
   );
 }
