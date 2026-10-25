@@ -21,7 +21,7 @@ const BOOKING_MODE = "To Pay";
 // Files live in public/assets and are served from /assets/. A missing file is simply left out.
 const ASSETS = {
   banner: "/assets/Gemini_Generated_Image_ebk705ebk705ebk7.png",
-  stamp: "/assets/Gemini_Generated_Image_3a8m3r3a8m3r3a8m.png",
+  stamp: "/assets/IMG_0940.jpeg",
   stampDuty: "/assets/Gemini_Generated_Image_3a8m3r3a8m3r3a8m.png",
 };
 
