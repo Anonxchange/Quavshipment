@@ -33,6 +33,22 @@ type TrackingRecord = {
   weight?: number | string | null;
   stopover_city?: string | null;
   stopover_country?: string | null;
+  // Optional: printed on the invoice when lookup_shipment returns them.
+  id?: number | string | null;
+  package_count?: number | null;
+  dimensions?: string | null;
+  cost?: number | string | null;
+  clearance_cost?: number | string | null;
+  departure_date?: string | null;
+  product_name?: string | null;
+  package_description?: string | null;
+  sender_name?: string | null;
+  sender_address?: string | null;
+  sender_phone?: string | null;
+  recipient_name?: string | null;
+  recipient_address?: string | null;
+  recipient_phone?: string | null;
+  recipient_email?: string | null;
   updates: TrackingEvent[];
 };
 
@@ -100,6 +116,13 @@ function dateTimeLabel(value: string) {
         dateStyle: "medium",
         timeStyle: "short",
       }).format(date);
+}
+
+// "12" -> "12 kg"; "12 kg" / "25 lb" are left as typed.
+function weightText(value: unknown) {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  return /[a-z]/i.test(text) ? text : `${text} kg`;
 }
 
 function routeItem(label: string, value: string) {
@@ -646,7 +669,7 @@ function renderParcel(record: TrackingRecord, updates: TrackingEvent[]) {
   if (record.mode) details.append(detailRow("Service", record.mode));
   if (record.carrier) details.append(detailRow("Carrier", record.carrier));
   if (record.weight !== undefined && record.weight !== null && record.weight !== "") {
-    details.append(detailRow("Weight", `${record.weight} kg`));
+    details.append(detailRow("Weight", weightText(record.weight)));
   }
   if (hasDate(record.created_at)) details.append(detailRow("Booked", dateLabel(record.created_at)));
   if (hasDate(record.pickup_date)) details.append(detailRow("Picked up", dateLabel(record.pickup_date)));
@@ -1430,7 +1453,7 @@ function updatePageCopy() {
   const note = document.querySelector<HTMLElement>(".qelvaron-tracking-note");
   if (note) {
     note.textContent =
-      "Public tracking shows a limited route and status summary. It does not reveal sender or recipient contact information, payment details, or internal notes.";
+      "Public tracking shows the route, status and the shipment details printed on the invoice. It does not reveal payment details or internal notes.";
   }
 
   const faqAnswers = document.querySelectorAll<HTMLElement>(
