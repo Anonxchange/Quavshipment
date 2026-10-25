@@ -1,5 +1,7 @@
 import "mapbox-gl/dist/mapbox-gl.css";
 import "./tracking-live.css";
+import "./tracking-print.css";
+import { printInvoice } from "./invoice";
 import type { Map as MapboxMap, Marker as MapboxMarker } from "mapbox-gl";
 import { supabase, supabaseConfigured } from "@/lib/supabase";
 import {
@@ -124,6 +126,7 @@ type IconName =
   | "clock"
   | "alert"
   | "check"
+  | "print"
   | "stopover";
 
 const iconMarkup: Record<IconName, string> = {
@@ -144,6 +147,8 @@ const iconMarkup: Record<IconName, string> = {
   alert:
     '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
   check: '<polyline points="20 6 9 17 4 12"/>',
+  print:
+    '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
 };
 
 function icon(name: IconName, size = 18) {
@@ -530,7 +535,11 @@ function renderParcel(record: TrackingRecord, updates: TrackingEvent[]) {
     makeElement("h3", "", "Parcel information"),
     makeElement("p", "", "Public details about this shipment."),
   );
-  head.append(badge, titles);
+  const printButton = makeElement("button", "qelvaron-live-print");
+  printButton.type = "button";
+  printButton.append(icon("print", 16), makeElement("span", "", "Print invoice"));
+  printButton.addEventListener("click", () => printInvoice(record, updates));
+  head.append(badge, titles, printButton);
 
   const details = makeElement("dl", "qelvaron-live-details");
   details.append(detailRow("Tracking reference", record.tracking_number));
