@@ -74,8 +74,8 @@ document.addEventListener(
       success.style.display = 'block';
       success.setAttribute('aria-live', 'polite');
       success.textContent = copied
-        ? 'Your inquiry details were copied. Nothing was sent; Qelvaron’s contact channels are still being confirmed.'
-        : 'Your inquiry is ready, but could not be copied automatically. Nothing was sent; Qelvaron’s contact channels are still being confirmed.';
+        ? 'Your inquiry details were copied. Nothing was sent yet. Please paste them into an email to support@qelvaronlogistics.com.'
+        : 'Your inquiry could not be copied automatically and nothing was sent. Please email your details to support@qelvaronlogistics.com.';
       form.style.display = 'none';
       success.focus();
       return;
@@ -90,8 +90,8 @@ document.addEventListener(
     }
     if (status) {
       status.textContent = copied
-        ? 'Your inquiry details were copied. Nothing was sent.'
-        : 'Nothing was sent. Qelvaron’s contact channels are still being confirmed.';
+        ? 'Your inquiry details were copied. Nothing was sent yet. Please paste them into an email to support@qelvaronlogistics.com.'
+        : 'Nothing was sent. Please email your details to support@qelvaronlogistics.com.';
     }
   },
   true,
