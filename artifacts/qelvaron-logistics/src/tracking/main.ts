@@ -203,7 +203,7 @@ type Stage = {
   icon: IconName | "transit";
 };
 
-const progressSteps: Stage[] = [
+const baseSteps: Stage[] = [
   {
     label: "Order received",
     title: "Order created",
@@ -222,8 +222,15 @@ const progressSteps: Stage[] = [
     label: "In transit",
     title: "In transit",
     blurb: "The package is on its way to the destination.",
-    statuses: ["in transit", "stopover", "delayed", "exception"],
+    statuses: ["in transit", "delayed", "exception"],
     icon: "transit",
+  },
+  {
+    label: "Stopover",
+    title: "Stopover",
+    blurb: "The package is at an intermediate stopover location.",
+    statuses: ["stopover"],
+    icon: "stopover",
   },
   {
     label: "Customs",
@@ -248,7 +255,19 @@ const progressSteps: Stage[] = [
   },
 ];
 
-const CUSTOMS_INDEX = 3;
+// Stopover is only shown as a step when the shipment has a stopover (or is at one).
+let progressSteps: Stage[] = baseSteps;
+
+function useStepsFor(record: TrackingRecord) {
+  const hasStopover =
+    Boolean(record.stopover_city || record.stopover_country) ||
+    normalizedStatus(record.status) === "stopover";
+  progressSteps = baseSteps.filter((step) => hasStopover || !step.statuses.includes("stopover"));
+}
+
+function customsIndex() {
+  return progressSteps.findIndex((step) => step.statuses.includes("held by customs"));
+}
 
 function normalizedStatus(value: string) {
   return value.trim().toLowerCase().replace(/[_-]+/g, " ");
@@ -271,12 +290,16 @@ function isDelivered(status: string) {
 function stageState(index: number, record: TrackingRecord) {
   if (isDelivered(record.status)) return "complete";
   const current = progressIndex(record.status);
+  // A stopover already passed stays completed even if the status went back to "in transit".
+  if (progressSteps[index]?.statuses.includes("stopover") && index !== current && stopoverVisited(record)) {
+    return "complete";
+  }
   return index < current ? "complete" : index === current ? "current" : "upcoming";
 }
 
 // Has the shipment reached (or already left) its stopover?
 function stopoverVisited(record: TrackingRecord) {
-  if (isDelivered(record.status) || progressIndex(record.status) >= CUSTOMS_INDEX) return true;
+  if (isDelivered(record.status) || progressIndex(record.status) >= customsIndex()) return true;
   const events = Array.isArray(record.updates) ? record.updates : [];
   return events.some((event) => normalizedStatus(event.status) === "stopover");
 }
@@ -327,7 +350,7 @@ function renderOverview(record: TrackingRecord, updates: TrackingEvent[]) {
     const state = stageState(index, record);
     const item = makeElement("li", "qelvaron-track-progress-step");
     item.dataset.state = state;
-    if (index === CUSTOMS_INDEX && state === "current") item.dataset.attention = "true";
+    if (index === customsIndex() && state === "current") item.dataset.attention = "true";
 
     const marker = makeElement("span", "qelvaron-track-progress-mark");
     marker.setAttribute("aria-hidden", "true");
@@ -385,7 +408,7 @@ function renderUpdates(record: TrackingRecord, updates: TrackingEvent[]) {
     item.dataset.state = state;
     item.style.setProperty("--stage-index", String(index));
     if (index === progressSteps.length - 1) item.dataset.last = "true";
-    if (index === CUSTOMS_INDEX && state === "current") item.dataset.attention = "true";
+    if (index === customsIndex() && state === "current") item.dataset.attention = "true";
 
     const mark = makeElement("span", "qelvaron-live-stage-mark");
     mark.append(icon(stageIcon(stage, record), 22));
@@ -410,9 +433,11 @@ function renderUpdates(record: TrackingRecord, updates: TrackingEvent[]) {
       ? ""
       : index <= 1
         ? placeLabel(record.origin_city, record.origin_country)
-        : index === 5
+        : index === progressSteps.length - 1
           ? placeLabel(record.destination_city, record.destination_country)
-          : "";
+          : stage.statuses.includes("stopover")
+            ? stopoverName
+            : "";
     const fallbackDate = !known ? null : index === 0 ? record.created_at : index === 1 ? record.pickup_date : null;
     const placeText = latest?.location || fallbackPlace;
 
@@ -447,7 +472,7 @@ function renderUpdates(record: TrackingRecord, updates: TrackingEvent[]) {
       body.append(makeElement("p", "qelvaron-live-stage-status", latest.status));
     }
 
-    if (index === 2 && atStopover && stopoverName) {
+    if (stage.statuses.includes("stopover") && atStopover && stopoverName) {
       body.append(
         makeElement(
           "p",
@@ -528,7 +553,7 @@ function ensureHolders() {
     // Rebuild outermost -> innermost, copying tag and classes (not ids).
     let inner: HTMLElement = parcelHolder;
     for (const original of chain) {
-      const clone = makeElement(original.tagName.toLowerCase(), original.className);
+      const clone = makeElement(original.tagName.toLowerCase() as "div", original.className);
       clone.append(inner);
       inner = clone;
     }
@@ -814,6 +839,27 @@ function legendItem(kind: string, title: string, text: string) {
   return item;
 }
 
+// What the "current" pin and legend say: the real status from the data, plus the place
+// when there is one (e.g. "Stopover · Dubai, UAE"), and an icon that matches the status.
+function currentView(record: TrackingRecord, route: ShipmentRoute, atStopover: boolean) {
+  const status = normalizedStatus(record.status);
+  const place = (atStopover ? route.stopover?.label : route.current?.label)?.trim() ?? "";
+  const known = place && normalizedStatus(place) !== status ? place : "";
+  const text = known ? `${record.status} · ${known}` : record.status;
+  let icon: IconName = transportIcon(record.mode ?? "");
+  let popupTitle = "Current location";
+  if (atStopover) {
+    icon = "stopover";
+    popupTitle = "At stopover";
+  } else if (status === "held by customs") {
+    icon = "alert";
+    popupTitle = "Held by customs";
+  } else if (status === "out for delivery" || status === "failed delivery") {
+    icon = "truck";
+  }
+  return { icon, text, popupTitle };
+}
+
 function sameCoordinates(a: [number, number], b: [number, number]) {
   return a[0] === b[0] && a[1] === b[1];
 }
@@ -909,8 +955,17 @@ async function drawRoute(
   const origin = route.origin.coordinates;
   const destination = route.destination.coordinates;
   const stopover = route.stopover?.coordinates ?? null;
-  const current =
-    route.current && !delivered ? route.current.coordinates : null;
+  const status = normalizedStatus(record.status);
+  const atStopover = status === "stopover" && !!route.stopover;
+  // At a stopover the marker sits on the stopover itself, whatever the route data says.
+  const current: [number, number] | null = delivered
+    ? null
+    : atStopover && route.stopover
+      ? route.stopover.coordinates
+      : route.current
+        ? route.current.coordinates
+        : null;
+  const view = currentView(record, route, atStopover);
 
   // Pins ------------------------------------------------------------
   const addPin = (
@@ -941,17 +996,16 @@ async function drawRoute(
     delivered ? "Delivered" : "Destination",
     route.destination.label,
   );
-  if (current && route.current) {
-    const modeIcon = transportIcon(record.mode ?? "");
-    const marker = pinElement("current", modeIcon, 28);
-    marker.classList.add("qelvaron-live-pin-pulse", "qelvaron-live-pin-vehicle");
-    marker.dataset.mode = modeIcon === "plane" ? "Plane" : modeIcon === "ship" ? "Ship" : "Truck";
+  if (current && (route.current || atStopover)) {
+    const marker = pinElement("current", view.icon, 20);
+    marker.dataset.status = status.replaceAll(" ", "-");
+    marker.classList.add("qelvaron-live-pin-pulse");
     activeMarkers.push(
       new mapbox.Marker({ element: marker })
         .setLngLat(current)
         .setPopup(
           new mapbox.Popup({ offset: 26 }).setDOMContent(
-            popupContent("Current location", route.current.label, current),
+            popupContent(view.popupTitle, view.text, current),
           ),
         )
         .addTo(map),
@@ -1054,7 +1108,7 @@ async function drawRoute(
   shell.legend.replaceChildren(
     legendItem("origin", "Origin", route.origin.label),
     ...(route.stopover ? [legendItem("stopover", "Stopover", route.stopover.label)] : []),
-    ...(current && route.current ? [legendItem("current", "Current", route.current.label)] : []),
+    ...(current && (route.current || atStopover) ? [legendItem("current", "Current", view.text)] : []),
     legendItem(
       delivered ? "delivered" : "destination",
       delivered ? "Delivered" : "Destination",
@@ -1115,7 +1169,7 @@ async function renderInteractiveMap(
 
     await drawRoute(mapbox, map, shell, route, record, requestVersion);
     if (requestVersion !== mapRequestVersion) return;
-    if (route.current?.label) fillLatestLocation(route.current.label);
+    if (route.current?.label) fillLatestLocation(currentView(record, route, normalizedStatus(record.status) === "stopover" && !!route.stopover).text);
     hideMapMessage();
     mapRoot.setAttribute("aria-label", `Route map for shipment ${reference}`);
   } catch (error) {
@@ -1189,6 +1243,7 @@ function renderRecord(record: TrackingRecord) {
       )
     : [];
 
+  useStepsFor(record);
   ensureHolders();
   renderOverview(record, updates);
   renderStopover(record);
