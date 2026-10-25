@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { AlertTriangle, ArrowDownToLine, ArrowLeft, Check, ClipboardList, FileText, LogOut, Mail, MapPin, Menu, PackagePlus, Pencil, Plus, Printer, Search, Send, Ship, Trash2, X } from "lucide-react";
+import { AlertTriangle, ArrowDownToLine, ArrowLeft, Check, ClipboardList, FileText, ImagePlus, LogOut, Mail, MapPin, Menu, PackagePlus, Pencil, Plus, Printer, Search, Send, Ship, Trash2, X } from "lucide-react";
 import { getSupabaseConfigMessage, supabase, supabaseConfigured } from "@/lib/supabase";
-import { sendSavedEmailDraft } from "@/lib/edge-functions";
+import { EMAIL_IMAGE_TYPES, MAX_EMAIL_IMAGE_BYTES, sendSavedEmail } from "@/lib/edge-functions";
 import { supabaseRepository, type EmailDraft, type Shipment, type ShipmentStatus, type TrackingUpdate } from "./repository";
 import PrintInvoiceModal from "./PrintInvoiceModal";
 import TrackingUpdatesModal from "./TrackingUpdatesModal";
@@ -109,6 +109,7 @@ export default function AdminApp() {
   const [editing,setEditing]=useState<Shipment|undefined>(),[toast,setToast]=useState("");
   const [trackingModalShipment,setTrackingModalShipment]=useState<Shipment|null>(null),[printModalShipment,setPrintModalShipment]=useState<Shipment|null>(null);
   const [draftTracking,setDraftTracking]=useState(""),[draftRecipient,setDraftRecipient]=useState(""),[draftSubject,setDraftSubject]=useState(""),[draftBody,setDraftBody]=useState("");
+  const [emailImage,setEmailImage]=useState<File|null>(null),[emailImageError,setEmailImageError]=useState("");
   const [editingDraftId,setEditingDraftId]=useState<string|null>(null);
   const [sendingDraftId,setSendingDraftId]=useState<string|null>(null);
   const [sentDraftIds,setSentDraftIds]=useState<Set<string>>(()=>new Set());
@@ -220,7 +221,7 @@ export default function AdminApp() {
     }catch(error){notify(error instanceof Error?error.message:"Tracking update could not be saved.");}
   }
   function chooseShipment(s:Shipment){setSelectedId(s.id);setView("shipments");}
-  function prepareDraft(s?:Shipment){setEditingDraftId(null);setDraftTracking(s?.tracking||"");setDraftRecipient(s?.recipientEmail||"");setDraftSubject(s?`Shipment update · ${s.tracking}`:"");setDraftBody(s?`Hello ${s.recipient},\n\nHere is a quick update about your shipment ${s.tracking}.\n\nCurrent status: ${s.status}\nEstimated delivery: ${niceDate(s.estimated)}\n\nPlease contact your logistics representative if you have questions.\n\nQelvaron Global Logistics`:"");setView("emails");}
+  function prepareDraft(s?:Shipment){setEditingDraftId(null);setEmailImage(null);setEmailImageError("");setDraftTracking(s?.tracking||"");setDraftRecipient(s?.recipientEmail||"");setDraftSubject(s?`Shipment update · ${s.tracking}`:"");setDraftBody(s?`Hello ${s.recipient},\n\nHere is a quick update about your shipment ${s.tracking}.\n\nCurrent status: ${s.status}\nEstimated delivery: ${niceDate(s.estimated)}\n\nPlease contact your logistics representative if you have questions.\n\nQelvaron Global Logistics`:"");setView("emails");}
   async function saveDraft(e:FormEvent){
     e.preventDefault();
     const match=shipments.find(s=>s.tracking===draftTracking);
@@ -230,17 +231,19 @@ export default function AdminApp() {
       setDrafts(current=>current.some(item=>item.id===saved.id)?current.map(item=>item.id===saved.id?saved:item):[saved,...current]);
       setSentDraftIds(current=>{const next=new Set(current);next.delete(saved.id);return next;});
       setEditingDraftId(saved.id);
-      notify(`${editingDraftId?"Draft updated":"Unsent draft saved"}${match?` for ${match.tracking}`:""} in Supabase.`);
-    }catch(error){notify(error instanceof Error?error.message:"Email draft could not be saved.");}
+      notify(`${editingDraftId?"Email updated":"Email saved"}${match?` for ${match.tracking}`:""} in Supabase.`);
+    }catch(error){notify(error instanceof Error?error.message:"Email could not be saved.");}
   }
   async function sendDraft(draft:EmailDraft){
     if(sendingDraftId)return;
-    const confirmed=window.confirm(`Send this email to ${draft.recipient}?\n\nSubject: ${draft.subject}\n\nIt will be sent through the connected Resend function.`);
+    if(emailImage&&editingDraftId!==draft.id){notify("Open the email with the selected image before sending it.");return;}
+    const confirmed=window.confirm(`Send this email to ${draft.recipient}?\n\nSubject: ${draft.subject}\n\nThe message will be sent through the configured Resend service.`);
     if(!confirmed)return;
     setSendingDraftId(draft.id);
     try{
-      await sendSavedEmailDraft(draft.id);
+      await sendSavedEmail(draft.id,editingDraftId===draft.id?emailImage??undefined:undefined);
       setSentDraftIds(current=>new Set(current).add(draft.id));
+      setEmailImage(null);setEmailImageError("");
       notify(`Email sent to ${draft.recipient}.`);
     }catch(error){notify(error instanceof Error?error.message:"Email could not be sent.");}
     finally{setSendingDraftId(null);}
@@ -293,7 +296,7 @@ export default function AdminApp() {
             <button className="primary-button w-variant-13a7ccd8-9ebe-d094-481f-e24b4fc8f662 admin-submit" type="submit" disabled={authLoading} data-testid="button-admin-login">{authLoading?"Signing in…":"Enter operations desk"} <ArrowLeft size={15} style={{transform:"rotate(180deg)"}}/></button>
             <div className="login-warning"><strong>First-time setup:</strong> create the operator in Supabase Authentication, then add their Auth user ID to <code>public.qelvaron_admins</code> using the SQL in <code>supabase/README.md</code>.</div>
           </form>
-          <p className="admin-login-foot">Shipment records are protected by Supabase row-level security. Email sending remains disabled.</p>
+          <p className="admin-login-foot">Shipment records are protected by Supabase row-level security. Approved operators can send customer updates through Resend.</p>
         </section>
       </div>
     </main>
@@ -309,7 +312,7 @@ export default function AdminApp() {
             <span className="nav-slash">/</span>
             <AdminNavButton active={view==="shipments"} label="Shipments" onClick={()=>nav("shipments")} testid="nav-shipments" count={shipments.length}/>
             <span className="nav-slash">/</span>
-            <AdminNavButton active={view==="emails"} label="Email drafts" onClick={()=>nav("emails")} testid="nav-email-drafts" count={drafts.length}/>
+            <AdminNavButton active={view==="emails"} label="Customer emails" onClick={()=>nav("emails")} testid="nav-customer-emails" count={drafts.length}/>
           </nav>
           <div className="admin-nav-actions"><span className="admin-preview-label">Supabase connected</span><button className="nav-link admin-signout" onClick={()=>void logout()} data-testid="button-logout"><LogOut size={14}/> Sign out</button></div>
         </div>
@@ -326,23 +329,24 @@ export default function AdminApp() {
               <ShipmentTable shipments={visible} selectedId={selectedId} onSelect={chooseShipment} onEdit={s=>setEditing(s)} onDelete={deleteShipment} onPrint={printShipment}/>
             </div>{selected?<Detail shipment={selected} onEdit={()=>setEditing(selected)} onPrint={()=>printShipment(selected)} onTracking={()=>setTrackingModalShipment(selected)} updateCount={trackingUpdates.filter(update=>update.shipmentId===selected.id).length}/>:<div className="panel empty-state"><div className="empty-mark"><ClipboardList/></div><h3>Select a shipment</h3><p>Choose a row to inspect full contacts, locations and payment details.</p></div>}</div>
           </section>}
-          {view==="emails"&&<section><div className="page-head"><div><p className="text-size-small admin-kicker">Customer correspondence</p><h1 className="heading-style-h1 admin-page-title">Email drafts</h1><p className="admin-page-subtitle">Prepare shipment updates, save them in Supabase, and send them through the secured Resend function.</p></div><button className="button button-primary" type="button" onClick={()=>prepareDraft()} data-testid="button-new-draft"><Plus size={15}/> New draft</button></div>
-            <div className="notice" style={{marginBottom:15}}><Mail/><span><strong>Review before sending.</strong> Sending a saved draft requires confirmation and uses your deployed Resend function.</span></div>
-            <div className="email-layout"><form className="panel form-panel" onSubmit={saveDraft}><h2 className="form-title">{editingDraftId?"Edit unsent message":"Compose an unsent message"}</h2><div className="form-grid">
-              <div className="form-field"><label htmlFor="draft-shipment">Shipment</label><select id="draft-shipment" className="field-control" value={draftTracking} onChange={e=>{const t=e.target.value;setDraftTracking(t);const s=shipments.find(x=>x.tracking===t);if(s){setDraftRecipient(s.recipientEmail);setDraftSubject(`Shipment update · ${s.tracking}`);setDraftBody(`Hello ${s.recipient},\n\nHere is a quick update about your shipment ${s.tracking}.\n\nCurrent status: ${s.status}\nEstimated delivery: ${niceDate(s.estimated)}\n\nPlease contact your logistics representative if you have questions.\n\nQelvaron Global Logistics`);}}} data-testid="select-draft-shipment"><option value="">Choose shipment (optional)</option>{shipments.map(s=><option key={s.id} value={s.tracking}>{s.tracking} · {s.recipient}</option>)}</select></div>
-              <div className="form-field"><label htmlFor="draft-recipient">Recipient email</label><input id="draft-recipient" type="email" value={draftRecipient} onChange={e=>setDraftRecipient(e.target.value)} required data-testid="input-draft-recipient"/></div>
-              <div className="form-field full"><label htmlFor="draft-subject">Subject</label><input id="draft-subject" value={draftSubject} onChange={e=>setDraftSubject(e.target.value)} required data-testid="input-draft-subject"/></div>
-              <div className="form-field full"><label htmlFor="draft-body">Message</label><textarea id="draft-body" value={draftBody} onChange={e=>setDraftBody(e.target.value)} required data-testid="input-draft-body"/></div>
-            </div><div className="form-footer"><span style={{fontSize:10,color:"#85909a"}}>Saved drafts remain unsent.</span><button className="button button-primary" type="submit" data-testid="button-save-draft"><Check size={15}/> {editingDraftId?"Update draft":"Save draft"}</button></div></form>
-              <div className="panel"><div className="panel-head"><div><h2 className="panel-title">Saved drafts</h2><p className="panel-note">{drafts.length} unsent {drafts.length===1?"draft":"drafts"}</p></div><FileText size={16} color="#79848f"/></div>
-                {drafts.length?<div className="draft-list">{drafts.map(d=><div key={d.id} className="draft-item" role="group" aria-label={`Email draft for ${d.recipient}`}>
-                  <button className="draft-item-select" type="button" onClick={()=>{setEditingDraftId(d.id);setDraftTracking(d.tracking);setDraftRecipient(d.recipient);setDraftSubject(d.subject);setDraftBody(d.body);}} data-testid={`draft-item-${d.id}`}>
-                    <strong>{d.subject||"(No subject)"}</strong><span>{d.recipient} · {d.tracking||"No shipment"} · {sentDraftIds.has(d.id)?"Sent this session":"Saved draft"}</span>
+          {view==="emails"&&<section><div className="page-head"><div><p className="text-size-small admin-kicker">Customer correspondence</p><h1 className="heading-style-h1 admin-page-title">Customer emails</h1><p className="admin-page-subtitle">Compose, save and send shipment updates through the Resend service.</p></div><button className="button button-primary" type="button" onClick={()=>prepareDraft()} data-testid="button-new-email"><Plus size={15}/> Compose email</button></div>
+            <div className="notice" style={{marginBottom:15}}><Mail/><span><strong>Review before sending.</strong> Each message is sent only after you confirm the recipient and subject.</span></div>
+            <div className="email-layout"><form className="panel form-panel" onSubmit={saveDraft}><h2 className="form-title">{editingDraftId?"Edit saved email":"Compose customer email"}</h2><div className="form-grid">
+              <div className="form-field"><label htmlFor="draft-shipment">Shipment</label><select id="draft-shipment" className="field-control" value={draftTracking} onChange={e=>{const t=e.target.value;setDraftTracking(t);const s=shipments.find(x=>x.tracking===t);if(s){setDraftRecipient(s.recipientEmail);setDraftSubject(`Shipment update · ${s.tracking}`);setDraftBody(`Hello ${s.recipient},\n\nHere is a quick update about your shipment ${s.tracking}.\n\nCurrent status: ${s.status}\nEstimated delivery: ${niceDate(s.estimated)}\n\nPlease contact your logistics representative if you have questions.\n\nQelvaron Global Logistics`);}}} data-testid="select-email-shipment"><option value="">Choose shipment (optional)</option>{shipments.map(s=><option key={s.id} value={s.tracking}>{s.tracking} · {s.recipient}</option>)}</select></div>
+              <div className="form-field"><label htmlFor="draft-recipient">Recipient email</label><input id="draft-recipient" type="email" value={draftRecipient} onChange={e=>setDraftRecipient(e.target.value)} required data-testid="input-email-recipient"/></div>
+              <div className="form-field full"><label htmlFor="draft-subject">Subject</label><input id="draft-subject" value={draftSubject} onChange={e=>setDraftSubject(e.target.value)} required data-testid="input-email-subject"/></div>
+              <div className="form-field full"><label htmlFor="draft-body">Message</label><textarea id="draft-body" value={draftBody} onChange={e=>setDraftBody(e.target.value)} required data-testid="input-email-body"/></div>
+              <div className="form-field full"><label htmlFor="email-image"><ImagePlus size={14} style={{verticalAlign:"middle",marginRight:6}}/>Image attachment (optional)</label><input id="email-image" className="field-control" type="file" accept={EMAIL_IMAGE_TYPES.join(",")} onChange={e=>{const file=e.currentTarget.files?.[0]??null;if(file&&(!EMAIL_IMAGE_TYPES.includes(file.type)||file.size>MAX_EMAIL_IMAGE_BYTES)){setEmailImage(null);setEmailImageError("Choose a JPG, PNG, WebP or GIF image up to 4 MB.");e.currentTarget.value="";return;}setEmailImage(file);setEmailImageError("");}} data-testid="input-email-image"/><p className="panel-note">One image, up to 4 MB. The attachment is sent with the email but is not stored with saved messages.</p>{emailImage&&<div className="form-footer" style={{justifyContent:"flex-start",gap:12}}><span>{emailImage.name} · {(emailImage.size/1024/1024).toFixed(2)} MB</span><button className="button" type="button" onClick={()=>{setEmailImage(null);setEmailImageError("");const input=document.getElementById("email-image") as HTMLInputElement|null;if(input)input.value="";}}>Remove image</button></div>}{emailImageError&&<p role="alert" className="panel-note" style={{color:"#b42318"}}>{emailImageError}</p>}</div>
+            </div><div className="form-footer"><span style={{fontSize:10,color:"#85909a"}}>Saved emails are not sent until you select Send.</span><button className="button button-primary" type="submit" data-testid="button-save-email"><Check size={15}/> {editingDraftId?"Update email":"Save email"}</button></div></form>
+              <div className="panel"><div className="panel-head"><div><h2 className="panel-title">Saved emails</h2><p className="panel-note">{drafts.length} waiting to send</p></div><FileText size={16} color="#79848f"/></div>
+                {drafts.length?<div className="draft-list">{drafts.map(d=><div key={d.id} className="draft-item" role="group" aria-label={`Email for ${d.recipient}`}>
+                  <button className="draft-item-select" type="button" onClick={()=>{setEditingDraftId(d.id);setEmailImage(null);setEmailImageError("");setDraftTracking(d.tracking);setDraftRecipient(d.recipient);setDraftSubject(d.subject);setDraftBody(d.body);}} data-testid={`email-item-${d.id}`}>
+                    <strong>{d.subject||"(No subject)"}</strong><span>{d.recipient} · {d.tracking||"No shipment"} · {sentDraftIds.has(d.id)?"Sent this session":"Saved email"}</span>
                   </button>
-                  <button className="button button-primary draft-send-button" type="button" onClick={()=>void sendDraft(d)} disabled={sendingDraftId!==null||sentDraftIds.has(d.id)} aria-label={`Send ${d.subject||"email draft"} to ${d.recipient}`} data-testid={`button-send-draft-${d.id}`}>
+                  <button className="button button-primary draft-send-button" type="button" onClick={()=>void sendDraft(d)} disabled={sendingDraftId!==null||sentDraftIds.has(d.id)} aria-label={`Send ${d.subject||"email"} to ${d.recipient}`} data-testid={`button-send-email-${d.id}`}>
                     <Send size={14}/>{sendingDraftId===d.id?"Sending…":sentDraftIds.has(d.id)?"Sent":"Send"}
                   </button>
-                </div>)}</div>:<div className="empty-state" style={{padding:"30px 16px"}}><div className="empty-mark"><Mail/></div><h3>No saved drafts</h3><p>Write a shipment update and save it here for review.</p></div>}
+                </div>)}</div>:<div className="empty-state" style={{padding:"30px 16px"}}><div className="empty-mark"><Mail/></div><h3>No saved emails</h3><p>Compose a shipment update and save it here before sending.</p></div>}
               </div></div>
           </section>}
           </div>
@@ -393,7 +397,7 @@ function AdminNavButton({active,label,onClick,testid,count}:{active:boolean;labe
 function Overview({shipments,balance,inMotion,onViewAll,onCreate,onSelect}:{shipments:Shipment[];balance:number;inMotion:number;onViewAll:()=>void;onCreate:()=>void;onSelect:(s:Shipment)=>void}){
   const booked=shipments.filter(s=>s.status==="Booked").length;
   return <section><div className="page-head"><div><p className="text-size-small admin-kicker">Operations snapshot</p><h1 className="heading-style-h1 admin-page-title">Good day. Here’s the desk.</h1><p className="admin-page-subtitle">A current view of your shipment activity and outstanding balances.</p></div><button className="button button-primary" onClick={onCreate} data-testid="button-overview-create"><Plus size={15}/> New shipment</button></div>
-      <div className="notice" style={{marginBottom:18}}><AlertTriangle/><span><strong>Live operations data.</strong> Shipment records and tracking updates are stored in Supabase and shared across approved operator accounts. Email drafts are saved but not sent.</span></div>
+      <div className="notice" style={{marginBottom:18}}><AlertTriangle/><span><strong>Live operations data.</strong> Shipment records and tracking updates are stored in Supabase and shared across approved operator accounts. Customer emails are sent by approved operators through Resend.</span></div>
     <div className="metric-grid">
       <Metric label="Total shipments" value={String(shipments.length).padStart(2,"0")} foot="Across all statuses"/>
       <Metric label="In motion" value={String(inMotion).padStart(2,"0")} foot="Picked up or in transit"/>
