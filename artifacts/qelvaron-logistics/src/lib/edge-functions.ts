@@ -1,4 +1,4 @@
-import {
+
   supabase,
   supabaseConfigured,
   supabasePublishableKey,
@@ -9,6 +9,26 @@ const trackingMapFunction =
   import.meta.env.VITE_SUPABASE_MAPBOX_FUNCTION_NAME?.trim() || "shipment-map";
 const resendFunction =
   import.meta.env.VITE_SUPABASE_RESEND_FUNCTION_NAME?.trim() || "send-email-draft";
+export const MAX_EMAIL_IMAGE_BYTES = 4 * 1024 * 1024;
+export const EMAIL_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+];
+
+async function encodeEmailImage(file: File) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return {
+    filename: file.name,
+    contentType: file.type,
+    content: btoa(binary),
+  };
+}
 
 type FunctionError = {
   error?: unknown;
@@ -56,8 +76,9 @@ export async function fetchShipmentMap(trackingReference: string): Promise<Blob>
   return response.blob();
 }
 
-export async function sendSavedEmailDraft(
-  draftId: string,
+export async function sendSavedEmail(
+  emailId: string,
+  imageFile?: File,
 ): Promise<{ emailId: string | null }> {
   if (!supabaseConfigured || !supabase) {
     throw new Error(
@@ -65,8 +86,12 @@ export async function sendSavedEmailDraft(
     );
   }
 
+  const attachment = imageFile ? await encodeEmailImage(imageFile) : undefined;
   const { data, error } = await supabase.functions.invoke(resendFunction, {
-    body: { draftId },
+    body: {
+      emailId,
+      ...(attachment ? { attachment } : {}),
+    },
   });
 
   if (error) {
@@ -76,6 +101,9 @@ export async function sendSavedEmailDraft(
   const result = data as { ok?: unknown; emailId?: unknown } | null;
   if (result?.ok !== true) {
     throw new Error("The Resend function did not confirm the email.");
+  }
+  if (imageFile && (result as { attachmentIncluded?: unknown }).attachmentIncluded !== true) {
+    throw new Error("The email service did not confirm the image attachment. The message may have been sent without it.");
   }
 
   return {
