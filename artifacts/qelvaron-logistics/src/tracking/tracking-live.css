@@ -1,0 +1,536 @@
+/*
+  Live tracking additions: interactive map, vertical timeline, stopover and
+  parcel cards. Everything here is driven by the tokens below, so restyling
+  for Qelvaron's theme means editing this one block (point them at your own
+  CSS variables, e.g. --qlive-accent: var(--qelvaron-blue)).
+*/
+:root {
+  /* Mapped to the Webflow theme tokens (qelvaron-webflow.css :root). */
+  --qlive-accent: var(--_colors---brand-100, #ff5d18);
+  --qlive-accent-soft: color-mix(in srgb, var(--qlive-accent) 9%, transparent);
+  --qlive-text: var(--_colors---secondary-200, #060517);
+  --qlive-muted: var(--_colors---dark-100, #666d78);
+  --qlive-line: var(--_colors---border-300, #e5e5e5);
+  --qlive-surface: var(--_colors---primary-100, #fff);
+  --qlive-surface-alt: var(--_colors---primary-200, #fafafa);
+  --qlive-radius: 9px;
+  --qlive-font: var(--font-family--aspekta, inherit);
+
+  /* Map + status colours (read by main.ts when drawing the route) */
+  --qlive-complete: #438a68;          /* solid, travelled leg (site's "delivered" green) */
+  --qlive-complete-casing: #275b45;
+  --qlive-remaining: var(--qlive-accent); /* dashed leg, same orange as the site's route */
+  --qlive-origin: #438a68;
+  --qlive-stopover: #2f80a8;
+  --qlive-destination: var(--qlive-text);
+  --qlive-current: var(--qlive-accent);
+  --qlive-attention: #c58a12;
+}
+
+.qelvaron-live-icon {
+  display: inline-flex;
+  flex: none;
+  line-height: 0;
+}
+
+/* ---------------------------------------------------------------- */
+/* Map                                                              */
+/* ---------------------------------------------------------------- */
+
+.qelvaron-live-map {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--qlive-radius);
+  background: var(--qlive-surface-alt);
+}
+
+.qelvaron-live-map-canvas {
+  width: 100%;
+  height: clamp(280px, 52vw, 460px);
+}
+
+.qelvaron-live-map-note {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: clamp(280px, 52vw, 460px);
+  margin: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  text-align: center;
+  color: var(--qlive-muted);
+  background: color-mix(in srgb, var(--qlive-surface-alt) 92%, transparent);
+  z-index: 2;
+}
+
+.qelvaron-live-map-note[data-kind="error"] {
+  color: #b91c1c;
+}
+
+.qelvaron-live-map-note[hidden] {
+  display: none;
+}
+
+.qelvaron-live-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  padding: 0.9rem 1rem;
+  border-top: 1px solid var(--qlive-line);
+  background: var(--qlive-surface);
+}
+
+.qelvaron-live-legend:empty {
+  display: none;
+}
+
+.qelvaron-live-legend-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.5rem;
+  align-items: baseline;
+  font-size: 0.85rem;
+  color: var(--qlive-muted);
+}
+
+.qelvaron-live-legend-item strong {
+  color: var(--qlive-text);
+}
+
+.qelvaron-live-legend-item > span:last-child {
+  grid-column: 2;
+}
+
+.qelvaron-live-legend-dot {
+  grid-row: 1;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: var(--dot, var(--qlive-muted));
+}
+
+.qelvaron-live-legend-item[data-kind="origin"] { --dot: var(--qlive-origin); }
+.qelvaron-live-legend-item[data-kind="stopover"] { --dot: var(--qlive-stopover); }
+.qelvaron-live-legend-item[data-kind="destination"] { --dot: var(--qlive-destination); }
+.qelvaron-live-legend-item[data-kind="delivered"] { --dot: var(--qlive-origin); }
+.qelvaron-live-legend-item[data-kind="current"] { --dot: var(--qlive-current); }
+
+/* Pins */
+.qelvaron-live-pin {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 4px solid #fff;
+  color: #fff;
+  background: var(--pin, var(--qlive-accent));
+  box-shadow:
+    0 4px 14px color-mix(in srgb, var(--pin, var(--qlive-accent)) 55%, transparent),
+    0 2px 6px rgb(0 0 0 / 0.2);
+  cursor: pointer;
+  transition: box-shadow 0.2s ease;
+}
+
+.qelvaron-live-pin[data-kind="origin"] { --pin: var(--qlive-origin); }
+.qelvaron-live-pin[data-kind="stopover"] { --pin: var(--qlive-stopover); }
+.qelvaron-live-pin[data-kind="destination"] { --pin: var(--qlive-destination); }
+.qelvaron-live-pin[data-kind="delivered"] { --pin: var(--qlive-origin); }
+.qelvaron-live-pin[data-kind="current"] { --pin: var(--qlive-current); width: 40px; height: 40px; }
+
+.qelvaron-live-pin-pulse::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--qlive-current);
+  animation: qelvaron-live-pulse 1.8s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes qelvaron-live-pulse {
+  from { transform: scale(0.9); opacity: 0.9; }
+  to { transform: scale(1.7); opacity: 0; }
+}
+
+.qelvaron-live-popup {
+  display: grid;
+  gap: 0.15rem;
+  font-size: 0.85rem;
+  color: #0f172a;
+}
+
+/* ---------------------------------------------------------------- */
+/* Timeline: vertical line with progress fill                       */
+/* ---------------------------------------------------------------- */
+
+.qelvaron-live-timeline {
+  --mark: 48px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.qelvaron-live-stage {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--mark) 1fr;
+  gap: 1.1rem;
+  padding-bottom: 1.5rem;
+}
+
+.qelvaron-live-stage[data-last="true"] {
+  padding-bottom: 0;
+}
+
+/* Grey track between this marker and the next */
+.qelvaron-live-stage::before,
+.qelvaron-live-stage::after {
+  content: "";
+  position: absolute;
+  left: calc(var(--mark) / 2 - 2px);
+  top: var(--mark);
+  bottom: calc(var(--mark) * -1);
+  width: 4px;
+  border-radius: 999px;
+}
+
+.qelvaron-live-stage::before {
+  background: var(--qlive-line);
+}
+
+/* Coloured fill, grows downward once the stage is completed */
+.qelvaron-live-stage::after {
+  background: linear-gradient(
+    to bottom,
+    var(--qlive-complete),
+    var(--qlive-current)
+  );
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 0.6s ease-in-out;
+  transition-delay: calc(var(--stage-index, 0) * 0.15s);
+}
+
+.qelvaron-live-stage[data-state="complete"]::after {
+  transform: scaleY(1);
+}
+
+.qelvaron-live-stage[data-last="true"]::before,
+.qelvaron-live-stage[data-last="true"]::after {
+  display: none;
+}
+
+.qelvaron-live-stage-mark {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: var(--mark);
+  height: var(--mark);
+  border-radius: 50%;
+  border: 2px solid var(--qlive-line);
+  background: var(--qlive-surface-alt);
+  color: var(--qlive-muted);
+}
+
+.qelvaron-live-stage[data-state="complete"] .qelvaron-live-stage-mark {
+  border-color: var(--qlive-complete);
+  background: var(--qlive-surface);
+  color: var(--qlive-complete);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.08);
+}
+
+.qelvaron-live-stage[data-state="current"] .qelvaron-live-stage-mark {
+  border-color: var(--qlive-accent);
+  background: var(--qlive-surface);
+  color: var(--qlive-accent);
+  transform: scale(1.1);
+  box-shadow:
+    0 0 0 5px var(--qlive-accent-soft),
+    0 4px 12px rgb(0 0 0 / 0.1);
+}
+
+.qelvaron-live-stage[data-attention="true"] .qelvaron-live-stage-mark {
+  border-color: var(--qlive-attention);
+  color: var(--qlive-attention);
+  box-shadow:
+    0 0 0 5px color-mix(in srgb, var(--qlive-attention) 18%, transparent),
+    0 4px 12px rgb(0 0 0 / 0.1);
+}
+
+.qelvaron-live-stage-body {
+  min-width: 0;
+  padding: 0.35rem 0;
+}
+
+.qelvaron-live-stage[data-state="current"] .qelvaron-live-stage-body {
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  background: var(--qlive-accent-soft);
+}
+
+.qelvaron-live-stage-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.35rem 1rem;
+}
+
+.qelvaron-live-stage-title h4 {
+  font-family: var(--qlive-font);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1rem;
+  color: var(--qlive-text);
+}
+
+.qelvaron-live-stage[data-state="upcoming"] .qelvaron-live-stage-title h4 {
+  color: var(--qlive-muted);
+}
+
+.qelvaron-live-tag {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--qlive-muted);
+  background: var(--qlive-line);
+}
+
+.qelvaron-live-tag[data-state="complete"] {
+  color: #047857;
+  background: #d1fae5;
+}
+
+.qelvaron-live-tag[data-state="current"] {
+  color: #fff;
+  background: var(--qlive-accent);
+}
+
+.qelvaron-live-stage-place {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  color: var(--qlive-muted);
+}
+
+.qelvaron-live-stage-place .qelvaron-live-icon {
+  color: var(--qlive-accent);
+}
+
+.qelvaron-live-stage-time {
+  font-size: 0.8rem;
+  color: var(--qlive-muted);
+  white-space: nowrap;
+}
+
+.qelvaron-live-stage-copy {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--qlive-muted);
+}
+
+.qelvaron-live-stage-status {
+  margin: 0.4rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--qlive-accent);
+}
+
+.qelvaron-live-stage-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--qlive-stopover);
+}
+
+.qelvaron-live-stage-history {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0.6rem 0 0;
+  border-top: 1px dashed var(--qlive-line);
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--qlive-muted);
+}
+
+.qelvaron-live-stage-history li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.qelvaron-live-other {
+  margin-top: 1.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--qlive-line);
+}
+
+.qelvaron-live-other h4 {
+  font-family: var(--qlive-font);
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+.qelvaron-live-other ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.qelvaron-live-other li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 10px;
+  background: var(--qlive-surface-alt);
+  font-size: 0.85rem;
+}
+
+.qelvaron-live-other li > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.qelvaron-live-other p {
+  margin: 0.25rem 0 0;
+  color: var(--qlive-muted);
+}
+
+.qelvaron-live-other time {
+  color: var(--qlive-muted);
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- */
+/* Overview step additions                                          */
+/* ---------------------------------------------------------------- */
+
+.qelvaron-track-progress-step[data-attention="true"] .qelvaron-track-progress-mark {
+  background: var(--qlive-attention);
+  border-color: var(--qlive-attention);
+  color: #fff;
+}
+
+.qelvaron-track-progress-mark .qelvaron-live-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---------------------------------------------------------------- */
+/* Cards (stopover, parcel)                                         */
+/* ---------------------------------------------------------------- */
+
+.qelvaron-live-extras:not(:empty) {
+  margin: 1.5rem 0;
+}
+
+.qelvaron-live-card {
+  padding: 1.4rem;
+  border: 1px solid var(--qlive-line);
+  border-radius: var(--qlive-radius);
+  background: var(--qlive-surface);
+  color: var(--qlive-text);
+}
+
+.qelvaron-live-stopover {
+  border-left: 4px solid var(--qlive-stopover);
+}
+
+.qelvaron-live-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: 1.1rem;
+}
+
+.qelvaron-live-card-head h3 {
+  font-family: var(--qlive-font);
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.qelvaron-live-card-head p {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  color: var(--qlive-muted);
+}
+
+.qelvaron-live-card-icon,
+.qelvaron-live-stopover-badge {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--qlive-accent);
+}
+
+.qelvaron-live-stopover-badge {
+  background: var(--qlive-stopover);
+}
+
+.qelvaron-live-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.9rem 1.5rem;
+  margin: 0;
+}
+
+.qelvaron-live-details dt {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--qlive-muted);
+}
+
+.qelvaron-live-details dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.qelvaron-live-note {
+  margin: 1.1rem 0 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: 10px;
+  background: var(--qlive-surface-alt);
+  font-size: 0.85rem;
+  color: var(--qlive-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qelvaron-live-pin-pulse::after {
+    animation: none;
+  }
+  .qelvaron-live-stage::after {
+    transition: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .qelvaron-live-timeline {
+    --mark: 40px;
+  }
+  .qelvaron-live-stage {
+    gap: 0.8rem;
+  }
+}
