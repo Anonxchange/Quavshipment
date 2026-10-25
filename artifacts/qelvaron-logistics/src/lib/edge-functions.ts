@@ -1,4 +1,4 @@
-
+import {
   supabase,
   supabaseConfigured,
   supabasePublishableKey,
@@ -8,7 +8,7 @@
 const trackingMapFunction =
   import.meta.env.VITE_SUPABASE_MAPBOX_FUNCTION_NAME?.trim() || "shipment-map";
 const resendFunction =
-  import.meta.env.VITE_SUPABASE_RESEND_FUNCTION_NAME?.trim() || "send-email-draft";
+  import.meta.env.VITE_SUPABASE_RESEND_FUNCTION_NAME?.trim() || "resend";
 export const MAX_EMAIL_IMAGE_BYTES = 4 * 1024 * 1024;
 export const EMAIL_IMAGE_TYPES = [
   "image/jpeg",
