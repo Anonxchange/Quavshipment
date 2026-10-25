@@ -304,19 +304,13 @@ export default function AdminApp() {
 
   return <>
     <div className="qelvaron-admin">
-      <SiteHeader/>
-      <div className="admin-nav-band">
-        <div className="container-large admin-nav-row">
-          <nav className="admin-section-nav" aria-label="Operations navigation">
-            <AdminNavButton active={view==="overview"} label="Overview" onClick={()=>nav("overview")} testid="nav-overview"/>
-            <span className="nav-slash">/</span>
-            <AdminNavButton active={view==="shipments"} label="Shipments" onClick={()=>nav("shipments")} testid="nav-shipments" count={shipments.length}/>
-            <span className="nav-slash">/</span>
-            <AdminNavButton active={view==="emails"} label="Customer emails" onClick={()=>nav("emails")} testid="nav-customer-emails" count={drafts.length}/>
-          </nav>
-          <div className="admin-nav-actions"><span className="admin-preview-label">Supabase connected</span><button className="nav-link admin-signout" onClick={()=>void logout()} data-testid="button-logout"><LogOut size={14}/> Sign out</button></div>
-        </div>
-      </div>
+      <SiteHeader admin={{
+        view,
+        onNav: nav,
+        shipmentCount: shipments.length,
+        draftCount: drafts.length,
+        onLogout: () => void logout(),
+      }}/>
       <main className="padding-global admin-main">
         <div className="container-large">
           <div className="admin-page-topline"><span>Qelvaron Global Logistics / {view==="overview"?"Operations":view==="shipments"?"Shipment register":"Correspondence"}</span><span>{new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})}</span></div>
@@ -361,9 +355,19 @@ export default function AdminApp() {
   </>;
 }
 
-function SiteHeader(){
-  const [menuOpen,setMenuOpen]=useState(false);
-  const links=[["Home","/"],["Services","/services/"],["About Us","/about/"],["Contact Us","/contact/"],["How It Works","/how-it-works/"],["Tracking","/tracking/"]];
+type AdminHeaderProps = {
+  view: View;
+  onNav: (to: View) => void;
+  shipmentCount: number;
+  draftCount: number;
+  onLogout: () => void;
+};
+
+function SiteHeader({ admin }: { admin?: AdminHeaderProps }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const links = [["Home","/"],["Services","/services/"],["About Us","/about/"],["Contact Us","/contact/"],["How It Works","/how-it-works/"],["Tracking","/tracking/"]];
+  const go = (to: View) => { admin?.onNav(to); setMenuOpen(false); };
+
   return <header className="qelvaron-site-header">
     <div data-wf--navbar--variant="secondary" data-animation="default" data-collapse="medium" role="banner" className="navbar w-variant-b70c6a90-d637-7a16-8a9b-9a8545e8ba2c w-nav">
       <div className="container-large nav">
@@ -371,21 +375,23 @@ function SiteHeader(){
           <img loading="lazy" src="/qelvaron-logo-light.svg" alt="Qelvaron Global Logistics" className="brand-logo base w-variant-b70c6a90-d637-7a16-8a9b-9a8545e8ba2c"/>
           <img loading="lazy" src="/qelvaron-logo-dark.svg" alt="Qelvaron Global Logistics" className="brand-logo secondary w-variant-b70c6a90-d637-7a16-8a9b-9a8545e8ba2c"/>
         </a>
-        <nav role="navigation" aria-label="Qelvaron public navigation" className={`nav-menu w-nav-menu ${menuOpen?"admin-nav-open":""}`}>
-          {links.map(([label,href],index)=><span className="site-nav-pair" key={href}>
+
+        <nav role="navigation" aria-label={admin ? "Operations navigation" : "Qelvaron public navigation"} className={`nav-menu w-nav-menu ${menuOpen ? "admin-nav-open" : ""}`}>
+          {admin ? <>
+            <span className="site-nav-pair"><AdminNavButton active={admin.view==="overview"} label="Overview" onClick={()=>go("overview")} testid="nav-overview"/></span>
+            <span className="site-nav-pair"><span className="nav-slash">/</span><AdminNavButton active={admin.view==="shipments"} label="Shipments" onClick={()=>go("shipments")} testid="nav-shipments" count={admin.shipmentCount}/></span>
+            <span className="site-nav-pair"><span className="nav-slash">/</span><AdminNavButton active={admin.view==="emails"} label="Customer emails" onClick={()=>go("emails")} testid="nav-customer-emails" count={admin.draftCount}/></span>
+            <span className="site-nav-pair"><span className="nav-slash">/</span>
+              <button type="button" className="nav-link admin-signout" onClick={()=>{setMenuOpen(false);admin.onLogout();}} data-testid="button-logout"><LogOut size={14}/> <span>Sign out</span></button>
+            </span>
+          </> : links.map(([label,href],index)=><span className="site-nav-pair" key={href}>
             {index>0&&<span className="nav-slash w-variant-b70c6a90-d637-7a16-8a9b-9a8545e8ba2c">/</span>}
             <a nav-link="" href={href} className="nav-link w-variant-b70c6a90-d637-7a16-8a9b-9a8545e8ba2c"><span>{label}</span></a>
           </span>)}
         </nav>
+
         <div className="nav-right-content">
           <button type="button" className="menu w-nav-button admin-menu-toggle" aria-label={menuOpen?"Close navigation":"Open navigation"} aria-expanded={menuOpen} onClick={()=>setMenuOpen(!menuOpen)} data-testid="button-site-menu">{menuOpen?<X/>:<Menu/>}</button>
-          <div className="nav-buttons-wrap">
-            <a href="/contact/" className="primary-button w-variant-13a7ccd8-9ebe-d094-481f-e24b4fc8f662 w-inline-block">
-              <div className="primary-button-text"><span>Get Quote</span></div>
-              <div className="button-arrow-box"><svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 16 12" fill="none" className="button-arrow _01"><path d="M14 5.53023L0 5.53027M9.00002 0.530273L14 5.53023L9.00006 10.5303" stroke="currentColor" strokeWidth="1.5"/></svg></div>
-              <div className="primary-hover-bg"/>
-            </a>
-          </div>
         </div>
       </div>
     </div>
