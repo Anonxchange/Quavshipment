@@ -18,11 +18,11 @@ const COMPANY = {
 
 const BOOKING_MODE = "To Pay";
 
-// Files served from your site's public folder. A missing file is simply left out.
+// Files live in public/assets and are served from /assets/. A missing file is simply left out.
 const ASSETS = {
-  banner: "/Gemini_Generated_Image_ebk705ebk705ebk7.png",
-  stamp: "/stamps/Gemini_Generated_Image_3a8m3r3a8m3r3a8m.png",
-  stampDuty: "/stamps/IMG_0940.jpeg",
+  banner: "/assets/Gemini_Generated_Image_ebk705ebk705ebk7.png",
+  stamp: "/assets/Gemini_Generated_Image_3a8m3r3a8m3r3a8m.png",
+  stampDuty: "/assets/IMG_0940.jpeg",
 };
 
 type InvoiceEvent = {
