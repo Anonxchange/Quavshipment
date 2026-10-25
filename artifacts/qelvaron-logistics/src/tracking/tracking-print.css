@@ -62,3 +62,16 @@
 [data-qelvaron-latest][hidden] {
   display: none !important;
 }
+
+/* Larger route map. Only the height changes: width, pins, legend and the rest of the
+   layout are left alone. The map resizes itself when the container changes. */
+.qelvaron-live-map .qelvaron-live-map-canvas {
+  width: 100%;
+  height: clamp(420px, 62vh, 620px);
+}
+
+@media (max-width: 640px) {
+  .qelvaron-live-map .qelvaron-live-map-canvas {
+    height: clamp(380px, 62vh, 540px);
+  }
+}
