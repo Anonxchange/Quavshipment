@@ -34,6 +34,8 @@ function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [formNote, setFormNote] = useState('');
   const [prepared, setPrepared] = useState(false);
+  const [inquiryCopied, setInquiryCopied] = useState(false);
+  const [preparedMessage, setPreparedMessage] = useState('');
 
   const closeMenu = () => setMenuOpen(false);
 
@@ -41,18 +43,21 @@ function Home() {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const details = [
-      'Qelvaron Global Logistics — inquiry draft',
+      'Qelvaron Global Logistics — customer inquiry',
       `Name: ${form.get('name')}`,
       `Company: ${form.get('company') || 'Not provided'}`,
       `Email: ${form.get('email')}`,
       `Service of interest: ${form.get('service')}`,
       `Shipment notes: ${form.get('message')}`,
     ].join('\n');
+    setPreparedMessage(details);
     try {
       await navigator.clipboard.writeText(details);
-      setFormNote('Inquiry details copied. Keep this draft and share it once Qelvaron contact details are confirmed.');
+      setInquiryCopied(true);
+      setFormNote('Your inquiry has been copied to this device. This website does not send the form to Qelvaron.');
     } catch {
-      setFormNote('Your inquiry draft is ready below. Copy it and share it once Qelvaron contact details are confirmed.');
+      setInquiryCopied(false);
+      setFormNote('Your inquiry is ready below. Copy it and contact Qelvaron through your usual business channel.');
     }
     setPrepared(true);
   }
@@ -216,8 +221,9 @@ function Home() {
                 <label htmlFor="message">A few shipment details</label>
                 <textarea id="message" name="message" placeholder="Cargo, origin, destination, or anything else to know" required />
               </div>
-              <button className="button button-orange" type="submit">{prepared ? <><Check size={16} /> Draft prepared</> : <>Prepare inquiry <ArrowRight size={16} /></>}</button>
-              <p className={`form-note${prepared ? ' success' : ''}`} aria-live="polite">{formNote || 'No message is sent. Contact details are to be confirmed.'}</p>
+              <button className="button button-orange" type="submit">{inquiryCopied ? <><Check size={16} /> Inquiry copied</> : <>{prepared ? 'Copy inquiry again' : 'Copy inquiry'} <ArrowRight size={16} /></>}</button>
+              <p className={`form-note${prepared ? ' success' : ''}`} aria-live="polite">{formNote || 'This form copies your inquiry to this device; it does not send it to Qelvaron.'}</p>
+              {preparedMessage&&<textarea className="contact-text-field" rows={7} aria-label="Inquiry message ready to copy" value={preparedMessage} readOnly />}
             </form>
           </div>
         </section>
