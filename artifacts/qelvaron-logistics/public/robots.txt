@@ -1,2 +1,18 @@
+# Qelvaron Global Logistics
+# Public marketing pages may be crawled. Private and dynamic areas may not.
+
 User-agent: *
 Allow: /
+# Styles, scripts and images are needed to render the pages
+Allow: /assets/
+
+# Admin area and any API endpoints
+Disallow: /admin
+Disallow: /api/
+
+# Shipment lookups (references travel in the #fragment, which crawlers never see; this is a safety net)
+Disallow: /tracking/?
+Disallow: /*?trackingReference=
+
+# Add your live address once the domain is final:
+# Sitemap: https://www.qelvaronlogistics.com/sitemap.xml
