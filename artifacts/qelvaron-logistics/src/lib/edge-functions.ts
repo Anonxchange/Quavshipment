@@ -79,6 +79,7 @@ export async function fetchShipmentMap(trackingReference: string): Promise<Blob>
 export async function sendSavedEmail(
   emailId: string,
   imageFile?: File,
+  trackingReference?: string,
 ): Promise<{ emailId: string | null }> {
   if (!supabaseConfigured || !supabase) {
     throw new Error(
@@ -90,6 +91,7 @@ export async function sendSavedEmail(
   const { data, error } = await supabase.functions.invoke(resendFunction, {
     body: {
       emailId,
+      ...(trackingReference ? { tracking: trackingReference } : {}),
       ...(attachment ? { attachment } : {}),
     },
   });
