@@ -32,3 +32,28 @@
     justify-content: center;
   }
 }
+
+/* Coordinates shown in map popups and the legend */
+.qelvaron-live-coords {
+  display: block;
+  margin-top: 0.15rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  color: var(--qlive-muted, #666d78);
+}
+
+/* Parcel information row, placed just before the FAQ */
+.qelvaron-live-parcel-row {
+  padding-bottom: 2rem;
+}
+
+.qelvaron-live-parcel-row[hidden] {
+  display: none;
+}
+
+.qelvaron-live-parcel-row-plain {
+  box-sizing: border-box;
+  max-width: 1200px;
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+}
