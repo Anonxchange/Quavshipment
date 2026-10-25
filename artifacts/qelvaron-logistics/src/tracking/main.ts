@@ -841,9 +841,9 @@ function legendItem(kind: string, title: string, text: string) {
 
 // What the "current" pin and legend say: the real status from the data, plus the place
 // when there is one (e.g. "Stopover · Dubai, UAE"), and an icon that matches the status.
-function currentView(record: TrackingRecord, route: ShipmentRoute, atStopover: boolean) {
+function currentView(record: TrackingRecord, placeText: string, atStopover: boolean) {
   const status = normalizedStatus(record.status);
-  const place = (atStopover ? route.stopover?.label : route.current?.label)?.trim() ?? "";
+  const place = placeText.trim();
   const known = place && normalizedStatus(place) !== status ? place : "";
   const text = known ? `${record.status} · ${known}` : record.status;
   let icon: IconName = transportIcon(record.mode ?? "");
@@ -858,6 +858,65 @@ function currentView(record: TrackingRecord, route: ShipmentRoute, atStopover: b
     icon = "truck";
   }
   return { icon, text, popupTitle };
+}
+
+// ---- Real current position -------------------------------------------------
+// Only a position that comes from recorded data is shown: the stopover itself, or the place
+// named in the newest tracking update (looked up with Mapbox geocoding). Generic labels such as
+// "In Transit" carry no place, so nothing is drawn for them rather than a made-up point.
+const GENERIC_PLACE = new Set(["", "in transit", "transit", "unknown", "n/a", "na", "not available", "none"]);
+
+function isRealPlace(text: string | null | undefined, record: TrackingRecord) {
+  const value = normalizedStatus(text ?? "");
+  if (GENERIC_PLACE.has(value)) return false;
+  if (value === normalizedStatus(record.status)) return false;
+  return !baseSteps.some((step) => step.statuses.includes(value));
+}
+
+const geocodeCache = new Map<string, LngLat | null>();
+
+async function geocodePlace(text: string): Promise<LngLat | null> {
+  const key = text.trim().toLowerCase();
+  if (geocodeCache.has(key)) return geocodeCache.get(key) ?? null;
+  let result: LngLat | null = null;
+  try {
+    const url =
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json` +
+      `?limit=1&access_token=${encodeURIComponent(mapboxPublicToken)}`;
+    const response = await fetch(url);
+    if (response.ok) {
+      const data = (await response.json()) as { features?: { center?: LngLat }[] };
+      const center = data.features?.[0]?.center;
+      if (center && Number.isFinite(center[0]) && Number.isFinite(center[1])) result = center;
+    }
+  } catch {
+    result = null;
+  }
+  geocodeCache.set(key, result);
+  return result;
+}
+
+async function resolveCurrent(
+  record: TrackingRecord,
+  route: ShipmentRoute,
+  atStopover: boolean,
+): Promise<{ coordinates: LngLat; label: string } | null> {
+  if (isDelivered(record.status)) return null;
+  if (atStopover && route.stopover) {
+    return { coordinates: route.stopover.coordinates, label: route.stopover.label };
+  }
+  const events = Array.isArray(record.updates)
+    ? [...record.updates].sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp))
+    : [];
+  const latest = events.find((event) => isRealPlace(event.location, record));
+  if (latest) {
+    const coordinates = await geocodePlace(latest.location);
+    if (coordinates) return { coordinates, label: latest.location };
+  }
+  if (route.current && isRealPlace(route.current.label, record)) {
+    return { coordinates: route.current.coordinates, label: route.current.label };
+  }
+  return null;
 }
 
 function sameCoordinates(a: [number, number], b: [number, number]) {
@@ -941,7 +1000,7 @@ async function drawRoute(
   route: ShipmentRoute,
   record: TrackingRecord,
   requestVersion: number,
-) {
+): Promise<string> {
   clearRoute();
 
   const styles = mapRoot ? getComputedStyle(mapRoot) : null;
@@ -958,14 +1017,10 @@ async function drawRoute(
   const status = normalizedStatus(record.status);
   const atStopover = status === "stopover" && !!route.stopover;
   // At a stopover the marker sits on the stopover itself, whatever the route data says.
-  const current: [number, number] | null = delivered
-    ? null
-    : atStopover && route.stopover
-      ? route.stopover.coordinates
-      : route.current
-        ? route.current.coordinates
-        : null;
-  const view = currentView(record, route, atStopover);
+  const resolved = await resolveCurrent(record, route, atStopover);
+  if (requestVersion !== mapRequestVersion) return "";
+  const current: [number, number] | null = resolved ? resolved.coordinates : null;
+  const view = currentView(record, resolved?.label ?? "", atStopover);
 
   // Pins ------------------------------------------------------------
   const addPin = (
@@ -996,7 +1051,7 @@ async function drawRoute(
     delivered ? "Delivered" : "Destination",
     route.destination.label,
   );
-  if (current && (route.current || atStopover)) {
+  if (current && resolved) {
     const marker = pinElement("current", view.icon, 20);
     marker.dataset.status = status.replaceAll(" ", "-");
     marker.classList.add("qelvaron-live-pin-pulse");
@@ -1047,7 +1102,7 @@ async function drawRoute(
     expandPath(completed, road),
     expandPath(remaining, road),
   ]);
-  if (requestVersion !== mapRequestVersion) return;
+  if (requestVersion !== mapRequestVersion) return "";
 
   const lineData = (coordinates: [number, number][]) => ({
     type: "Feature" as const,
@@ -1097,24 +1152,20 @@ async function drawRoute(
     if (point) bounds.extend(point);
   });
   map.resize();
-  const compact = window.matchMedia("(max-width: 640px)").matches;
-  map.fitBounds(bounds, {
-    padding: compact ? { top: 70, bottom: 70, left: 45, right: 45 } : 80,
-    maxZoom: 8,
-    duration: 800,
-  });
+  map.fitBounds(bounds, { padding: 80, maxZoom: 8, duration: 800 });
 
   // Legend ----------------------------------------------------------
   shell.legend.replaceChildren(
     legendItem("origin", "Origin", route.origin.label),
     ...(route.stopover ? [legendItem("stopover", "Stopover", route.stopover.label)] : []),
-    ...(current && (route.current || atStopover) ? [legendItem("current", "Current", view.text)] : []),
+    ...(current && resolved ? [legendItem("current", "Current", view.text)] : []),
     legendItem(
       delivered ? "delivered" : "destination",
       delivered ? "Delivered" : "Destination",
       route.destination.label,
     ),
   );
+  return resolved?.label ?? "";
 }
 
 function startDashAnimation(map: MapboxMap) {
@@ -1167,9 +1218,9 @@ async function renderInteractiveMap(
     }
     if (requestVersion !== mapRequestVersion) return;
 
-    await drawRoute(mapbox, map, shell, route, record, requestVersion);
+    const currentLabel = await drawRoute(mapbox, map, shell, route, record, requestVersion);
     if (requestVersion !== mapRequestVersion) return;
-    if (route.current?.label) fillLatestLocation(currentView(record, route, normalizedStatus(record.status) === "stopover" && !!route.stopover).text);
+    if (currentLabel) fillLatestLocation(currentLabel);
     hideMapMessage();
     mapRoot.setAttribute("aria-label", `Route map for shipment ${reference}`);
   } catch (error) {
