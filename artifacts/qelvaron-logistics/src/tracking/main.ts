@@ -104,12 +104,38 @@ function dateTimeLabel(value: string) {
 
 function routeItem(label: string, value: string) {
   const item = makeElement("div", "");
-  item.append(makeElement("span", "", label), makeElement("strong", "", value || "Not available"));
+  item.append(makeElement("span", "", label), makeElement("strong", "", value));
   return item;
 }
 
 function placeLabel(city?: string | null, country?: string | null) {
   return [city, country].filter(Boolean).join(", ");
+}
+
+function hasDate(value: string | null) {
+  return dateLabel(value) !== "Not available";
+}
+
+// Best known "latest location" from the shipment data itself. Empty string = nothing real to show.
+function latestLocationText(record: TrackingRecord, updates: TrackingEvent[]) {
+  if (updates[0]?.location) return updates[0].location;
+  const status = normalizedStatus(record.status);
+  if (isDelivered(record.status)) return placeLabel(record.destination_city, record.destination_country);
+  if (status === "stopover") return placeLabel(record.stopover_city, record.stopover_country);
+  if (["booked", "pending", "picked up"].includes(status)) {
+    return placeLabel(record.origin_city, record.origin_country);
+  }
+  return "";
+}
+
+// Fill in "latest location" rows from the live route data when the shipment record had none.
+function fillLatestLocation(label: string) {
+  if (!label) return;
+  document.querySelectorAll<HTMLElement>("[data-qelvaron-latest][hidden]").forEach((item) => {
+    const value = item.querySelector("strong, dd");
+    if (value) value.textContent = label;
+    item.hidden = false;
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -277,14 +303,19 @@ function renderOverview(record: TrackingRecord, updates: TrackingEvent[]) {
   badge.dataset.state = normalizedStatus(record.status).replaceAll(" ", "-");
   header.append(reference, badge);
 
-  const latestUpdate = updates[0];
   const summary = makeElement("div", "qelvaron-track-route");
+  const latestText = latestLocationText(record, updates);
+  const latestItem = routeItem("Latest location", latestText);
+  latestItem.dataset.qelvaronLatest = "true";
+  latestItem.hidden = !latestText;
   summary.append(
     routeItem("Origin", placeLabel(record.origin_city, record.origin_country)),
     makeElement("span", "qelvaron-track-route-arrow", "→"),
     routeItem("Destination", placeLabel(record.destination_city, record.destination_country)),
-    routeItem("Latest location", latestUpdate?.location || "Not recorded yet"),
-    routeItem("Estimated delivery", dateLabel(record.estimated_delivery)),
+    latestItem,
+    ...(hasDate(record.estimated_delivery)
+      ? [routeItem("Estimated delivery", dateLabel(record.estimated_delivery))]
+      : []),
   );
 
   const progress = makeElement("section", "qelvaron-track-progress-section");
@@ -372,26 +403,37 @@ function renderUpdates(record: TrackingRecord, updates: TrackingEvent[]) {
     title.append(tag);
     titleBlock.append(title);
 
-    const place = makeElement("p", "qelvaron-live-stage-place");
-    place.append(
-      icon("pin", 15),
-      makeElement(
-        "span",
-        "",
-        latest?.location ||
-          (state === "upcoming" ? "Awaiting update" : "No location recorded yet"),
-      ),
-    );
-    titleBlock.append(place);
+    // Use the recorded update when there is one; otherwise fall back to real shipment
+    // data (booking date, pickup date, origin / destination). Nothing real = nothing shown.
+    const known = state !== "upcoming";
+    const fallbackPlace = !known
+      ? ""
+      : index <= 1
+        ? placeLabel(record.origin_city, record.origin_country)
+        : index === 5
+          ? placeLabel(record.destination_city, record.destination_country)
+          : "";
+    const fallbackDate = !known ? null : index === 0 ? record.created_at : index === 1 ? record.pickup_date : null;
+    const placeText = latest?.location || fallbackPlace;
 
-    const when = makeElement("time", "qelvaron-live-stage-time");
+    if (placeText) {
+      const place = makeElement("p", "qelvaron-live-stage-place");
+      place.append(icon("pin", 15), makeElement("span", "", placeText));
+      titleBlock.append(place);
+    }
+
+    head.append(titleBlock);
     if (latest) {
+      const when = makeElement("time", "qelvaron-live-stage-time");
       when.dateTime = latest.timestamp;
       when.textContent = dateTimeLabel(latest.timestamp);
-    } else {
-      when.textContent = state === "upcoming" ? "Pending" : "Not recorded";
+      head.append(when);
+    } else if (fallbackDate && hasDate(fallbackDate)) {
+      const when = makeElement("time", "qelvaron-live-stage-time");
+      when.dateTime = fallbackDate;
+      when.textContent = dateLabel(fallbackDate);
+      head.append(when);
     }
-    head.append(titleBlock, when);
 
     const copy = makeElement(
       "p",
@@ -565,10 +607,16 @@ function renderParcel(record: TrackingRecord, updates: TrackingEvent[]) {
   if (record.weight !== undefined && record.weight !== null && record.weight !== "") {
     details.append(detailRow("Weight", `${record.weight} kg`));
   }
-  details.append(detailRow("Booked", dateLabel(record.created_at)));
-  details.append(detailRow("Picked up", dateLabel(record.pickup_date)));
-  details.append(detailRow("Estimated delivery", dateLabel(record.estimated_delivery)));
-  details.append(detailRow("Latest location", updates[0]?.location || "Not recorded yet"));
+  if (hasDate(record.created_at)) details.append(detailRow("Booked", dateLabel(record.created_at)));
+  if (hasDate(record.pickup_date)) details.append(detailRow("Picked up", dateLabel(record.pickup_date)));
+  if (hasDate(record.estimated_delivery)) {
+    details.append(detailRow("Estimated delivery", dateLabel(record.estimated_delivery)));
+  }
+  const latestText = latestLocationText(record, updates);
+  const latestRow = detailRow("Latest location", latestText);
+  latestRow.dataset.qelvaronLatest = "true";
+  latestRow.hidden = !latestText;
+  details.append(latestRow);
 
   card.append(head, details);
   parcelHolder.replaceChildren(card);
@@ -739,16 +787,13 @@ function popupContent(title: string, text: string, coordinates?: [number, number
   return content;
 }
 
-function legendItem(kind: string, title: string, text: string, coordinates?: [number, number]) {
+function legendItem(kind: string, title: string, text: string) {
   const item = makeElement("div", "qelvaron-live-legend-item");
   item.dataset.kind = kind;
-  const label = makeElement("span", "", text);
-  const coords = coordinates ? formatCoordinates(coordinates) : "";
-  if (coords) label.append(makeElement("small", "qelvaron-live-coords", coords));
   item.append(
     makeElement("span", "qelvaron-live-legend-dot"),
     makeElement("strong", "", title),
-    label,
+    makeElement("span", "", text),
   );
   return item;
 }
@@ -757,12 +802,83 @@ function sameCoordinates(a: [number, number], b: [number, number]) {
   return a[0] === b[0] && a[1] === b[1];
 }
 
-function drawRoute(
+type LngLat = [number, number];
+
+// Great-circle arc between two points (used for air / sea legs, where no road route exists).
+// Longitudes are unwrapped so the line never jumps across the antimeridian.
+function greatCircle(a: LngLat, b: LngLat, steps = 64): LngLat[] {
+  const rad = Math.PI / 180;
+  const [lng1, lat1] = [a[0] * rad, a[1] * rad];
+  const [lng2, lat2] = [b[0] * rad, b[1] * rad];
+  const delta =
+    2 *
+    Math.asin(
+      Math.sqrt(
+        Math.sin((lat2 - lat1) / 2) ** 2 +
+          Math.cos(lat1) * Math.cos(lat2) * Math.sin((lng2 - lng1) / 2) ** 2,
+      ),
+    );
+  if (!Number.isFinite(delta) || delta < 1e-6) return [a, b];
+
+  const points: LngLat[] = [];
+  let previousLng = a[0];
+  for (let i = 0; i <= steps; i += 1) {
+    const f = i / steps;
+    const A = Math.sin((1 - f) * delta) / Math.sin(delta);
+    const B = Math.sin(f * delta) / Math.sin(delta);
+    const x = A * Math.cos(lat1) * Math.cos(lng1) + B * Math.cos(lat2) * Math.cos(lng2);
+    const y = A * Math.cos(lat1) * Math.sin(lng1) + B * Math.cos(lat2) * Math.sin(lng2);
+    const z = A * Math.sin(lat1) + B * Math.sin(lat2);
+    let lng = Math.atan2(y, x) / rad;
+    const lat = Math.atan2(z, Math.sqrt(x * x + y * y)) / rad;
+    while (lng - previousLng > 180) lng -= 360;
+    while (lng - previousLng < -180) lng += 360;
+    previousLng = lng;
+    points.push([lng, lat]);
+  }
+  return points;
+}
+
+// Road geometry from the Mapbox Directions API (driving profile). Null if Mapbox has no route.
+async function mapboxRoadLeg(a: LngLat, b: LngLat): Promise<LngLat[] | null> {
+  try {
+    const url =
+      `https://api.mapbox.com/directions/v5/mapbox/driving/${a[0]},${a[1]};${b[0]},${b[1]}` +
+      `?geometries=geojson&overview=full&access_token=${encodeURIComponent(mapboxPublicToken)}`;
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const data = (await response.json()) as {
+      routes?: { geometry?: { coordinates?: LngLat[] } }[];
+    };
+    const coordinates = data.routes?.[0]?.geometry?.coordinates;
+    return coordinates && coordinates.length > 1 ? coordinates : null;
+  } catch {
+    return null;
+  }
+}
+
+// Turn a list of waypoints into a detailed path: Mapbox road routes for road shipments
+// (falling back to a great-circle arc where Mapbox cannot route), arcs for air / sea.
+async function expandPath(points: LngLat[], road: boolean): Promise<LngLat[]> {
+  if (points.length < 2) return points;
+  const legs = await Promise.all(
+    points.slice(1).map(async (end, i) => {
+      const start = points[i] as LngLat;
+      if (sameCoordinates(start, end)) return [start, end];
+      const detailed = road ? await mapboxRoadLeg(start, end) : null;
+      return detailed ?? greatCircle(start, end);
+    }),
+  );
+  return legs.flatMap((leg, i) => (i === 0 ? leg : leg.slice(1)));
+}
+
+async function drawRoute(
   mapbox: MapboxGL,
   map: MapboxMap,
   shell: MapShell,
   route: ShipmentRoute,
   record: TrackingRecord,
+  requestVersion: number,
 ) {
   clearRoute();
 
@@ -853,6 +969,14 @@ function drawRoute(
     remaining = [origin, ...(stopover ? [stopover] : []), destination];
   }
 
+  // Mapbox road routes only exist for road shipments; air / sea use great-circle arcs.
+  const road = transportIcon(record.mode ?? "") === "truck";
+  [completed, remaining] = await Promise.all([
+    expandPath(completed, road),
+    expandPath(remaining, road),
+  ]);
+  if (requestVersion !== mapRequestVersion) return;
+
   const lineData = (coordinates: [number, number][]) => ({
     type: "Feature" as const,
     properties: {},
@@ -905,18 +1029,13 @@ function drawRoute(
 
   // Legend ----------------------------------------------------------
   shell.legend.replaceChildren(
-    legendItem("origin", "Origin", route.origin.label, origin),
-    ...(route.stopover && stopover
-      ? [legendItem("stopover", "Stopover", route.stopover.label, stopover)]
-      : []),
-    ...(current && route.current
-      ? [legendItem("current", "Current", route.current.label, current)]
-      : []),
+    legendItem("origin", "Origin", route.origin.label),
+    ...(route.stopover ? [legendItem("stopover", "Stopover", route.stopover.label)] : []),
+    ...(current && route.current ? [legendItem("current", "Current", route.current.label)] : []),
     legendItem(
       delivered ? "delivered" : "destination",
       delivered ? "Delivered" : "Destination",
       route.destination.label,
-      destination,
     ),
   );
 }
@@ -971,7 +1090,9 @@ async function renderInteractiveMap(
     }
     if (requestVersion !== mapRequestVersion) return;
 
-    drawRoute(mapbox, map, shell, route, record);
+    await drawRoute(mapbox, map, shell, route, record, requestVersion);
+    if (requestVersion !== mapRequestVersion) return;
+    if (route.current?.label) fillLatestLocation(route.current.label);
     hideMapMessage();
     mapRoot.setAttribute("aria-label", `Route map for shipment ${reference}`);
   } catch (error) {
