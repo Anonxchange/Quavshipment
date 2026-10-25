@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { AlertTriangle, ArrowDownToLine, ArrowLeft, Check, ClipboardList, FileText, ImagePlus, LogOut, Mail, MapPin, Menu, PackagePlus, Pencil, Plus, Printer, Search, Send, Ship, Trash2, X } from "lucide-react";
-import { getSupabaseConfigMessage, supabase, supabaseConfigured } from "@/lib/supabase";
+import { supabase, supabaseConfigured } from "@/lib/supabase";
 import { EMAIL_IMAGE_TYPES, MAX_EMAIL_IMAGE_BYTES, sendSavedEmail } from "@/lib/edge-functions";
 import { supabaseRepository, type EmailDraft, type Shipment, type ShipmentStatus, type TrackingUpdate } from "./repository";
 import PrintInvoiceModal from "./PrintInvoiceModal";
 import TrackingUpdatesModal from "./TrackingUpdatesModal";
+import { renderEmailHtml } from "./emailTemplate";
 
 type View = "overview" | "shipments" | "emails";
 const statuses:ShipmentStatus[]=["Booked","Picked up","In transit","Stopover","Held by Customs","Out for delivery","Delayed","Delivered","Exception","Failed delivery"];
@@ -33,8 +34,10 @@ function AddressFields({prefix,title,data}:{prefix:"origin"|"destination";title:
   </div></section>;
 }
 
-function ShipmentModal({shipment,onClose,onSave}:{shipment?:Shipment;onClose:()=>void;onSave:(s:Shipment)=>void}) {
+function ShipmentModal({shipment,onClose,onSave}:{shipment?:Shipment;onClose:()=>void;onSave:(s:Shipment,autoSend:boolean)=>void}) {
   const [error,setError]=useState("");
+  const [autoSend,setAutoSend]=useState(()=>{try{return window.localStorage.getItem("qelvaron.autoSendOnCreate")==="1";}catch{return false;}});
+  const changeAutoSend=(next:boolean)=>{setAutoSend(next);try{window.localStorage.setItem("qelvaron.autoSendOnCreate",next?"1":"0");}catch{/* ignore */}};
   const [baseCharge,setBaseCharge]=useState(()=>shipment?Math.max(0,Number(shipment.total)-Number(shipment.customFee||0)).toFixed(2):"0.00");
   const [customFee,setCustomFee]=useState(shipment?.customFee||"0.00");
   const calculatedTotal=(Number(baseCharge)||0)+(Number(customFee)||0);
@@ -42,6 +45,7 @@ function ShipmentModal({shipment,onClose,onSave}:{shipment?:Shipment;onClose:()=
     e.preventDefault(); const fd=new FormData(e.currentTarget); const values=Object.fromEntries(fd.entries()) as Record<string,string>;
     const clean=Object.fromEntries(Object.entries(values).map(([k,v])=>[k,v.trim()]));
     if(!clean.sender||!clean.recipient||!clean.originCity||!clean.destinationCity){setError("Sender, recipient, and both city fields are required.");return;}
+    if(!shipment&&autoSend&&!clean.recipientEmail){setError("Add the recipient’s email address, or turn off automatic emailing.");return;}
     const baseChargeAmount=Number(clean.baseCharge||0),customFeeAmount=Number(clean.customFee||0),paid=Number(clean.paid||0);
     if(![baseChargeAmount,customFeeAmount,paid].every(Number.isFinite)||baseChargeAmount<0||customFeeAmount<0||paid<0){setError("Charges, custom fee, and amount paid must be valid non-negative amounts.");return;}
     clean.total=(baseChargeAmount+customFeeAmount).toFixed(2);
@@ -50,7 +54,7 @@ function ShipmentModal({shipment,onClose,onSave}:{shipment?:Shipment;onClose:()=
     const now=new Date().toISOString().slice(0,10);
     const total=Number(clean.total);
     const record:Shipment={...emptyShipment,...clean,id:shipment?.id||supabaseRepository.makeId(),tracking:shipment?.tracking||"",created:shipment?.created||now,status:clean.status as ShipmentStatus,paymentStatus:(paid>=total&&total>0?"Paid":paid>0?"Partial":clean.paymentStatus||"Pending") as Shipment["paymentStatus"]} as Shipment;
-    onSave(record);
+    onSave(record,!shipment&&autoSend);
   }
   return <div className="overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)onClose();}}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="shipment-modal-title">
     <div className="modal-head"><h2 id="shipment-modal-title">{shipment?"Update shipment":"Create shipment"}</h2><button className="icon-button" type="button" onClick={onClose} aria-label="Close" data-testid="button-close-shipment"><X/></button></div>
@@ -78,6 +82,11 @@ function ShipmentModal({shipment,onClose,onSave}:{shipment?:Shipment;onClose:()=
         <Field label="Payment reference" name="paymentReference" value={shipment?.paymentReference}/>
       </div></section>
       <section className="form-section"><h3>Operations notes</h3><div className="form-field"><label htmlFor="shipment-notes">Notes</label><textarea className="small" name="notes" id="shipment-notes" defaultValue={shipment?.notes} data-testid="input-shipment-notes"/></div></section>
+      {!shipment&&<section className="form-section"><h3>Customer notification</h3>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:16,padding:"12px 14px",border:"1px solid #e3e8ee",borderRadius:8,background:autoSend?"#f1faf4":"#f9fafb"}}>
+          <div><strong style={{display:"block",fontSize:13}}>Auto-send email to receiver</strong><span style={{fontSize:11,lineHeight:1.5,color:"#5b6670"}}>{autoSend?"ON: a tracking email is sent to the recipient as soon as the shipment is created.":"OFF: nothing is sent automatically. Send it yourself from Customer emails."}</span></div>
+          <button type="button" role="switch" aria-checked={autoSend} aria-label="Auto-send email to receiver after creating" onClick={()=>changeAutoSend(!autoSend)} data-testid="switch-auto-send-email" style={{flex:"none",width:46,height:26,borderRadius:13,border:0,padding:3,cursor:"pointer",background:autoSend?"#16a34a":"#c3cbd3",display:"flex",justifyContent:autoSend?"flex-end":"flex-start"}}><span style={{width:20,height:20,borderRadius:"50%",background:"#fff",display:"block",boxShadow:"0 1px 3px rgba(0,0,0,.3)"}}/></button>
+        </div></section>}
       <div className="modal-footer"><button className="button" type="button" onClick={onClose} data-testid="button-cancel-shipment">Cancel</button><button className="button button-primary" type="submit" data-testid="button-save-shipment"><Check size={15}/>{shipment?"Save changes":"Create shipment"}</button></div>
     </div></form>
   </div></div>;
@@ -113,6 +122,7 @@ export default function AdminApp() {
   const [editingDraftId,setEditingDraftId]=useState<string|null>(null);
   const [sendingDraftId,setSendingDraftId]=useState<string|null>(null);
   const [sentDraftIds,setSentDraftIds]=useState<Set<string>>(()=>new Set());
+  const [previewMode,setPreviewMode]=useState<"desktop"|"mobile">("desktop");
   const notify=(message:string)=>{setToast(message);window.setTimeout(()=>setToast(""),2600);};
 
   useEffect(()=>{
@@ -124,7 +134,7 @@ export default function AdminApp() {
     const checkAdmin=async(userId:string)=>{
       const {data,error}=await supabaseClient.rpc("is_qelvaron_admin");
       if(!active||activeUserId!==userId)return;
-      if(error){setAdminStatus("error");setLoginError(error.message);return;}
+      if(error){setAdminStatus("error");return;}
       setAdminStatus(data===true?"admin":"forbidden");
     };
     const applySession=(nextSession:Session|null)=>{
@@ -146,7 +156,7 @@ export default function AdminApp() {
     });
     void supabaseClient.auth.getSession().then(({data,error})=>{
       if(!active||authEventReceived)return;
-      if(error){setLoginError(error.message);setAdminStatus("signed-out");setAuthLoading(false);return;}
+      if(error){setLoginError("We couldn’t restore your session. Please sign in again.");setAdminStatus("signed-out");setAuthLoading(false);return;}
       applySession(data.session);
     });
     return ()=>{active=false;subscription.unsubscribe();};
@@ -175,6 +185,7 @@ export default function AdminApp() {
     const matches=!term||[s.tracking,s.sender,s.recipient,s.originCity,s.destinationCity,s.carrier].some(v=>v.toLowerCase().includes(term));
     return matches&&(filter==="All statuses"||s.status===filter);
   }).sort((a,b)=>b.created.localeCompare(a.created)),[shipments,search,filter]);
+  const emailPreviewHtml=useMemo(()=>renderEmailHtml({subject:draftSubject||"(No subject)",body:draftBody||"Your message will appear here as you type.",tracking:draftTracking||undefined,siteUrl:window.location.origin}),[draftSubject,draftBody,draftTracking]);
   const balance=shipments.reduce((sum,s)=>sum+Math.max(0,Number(s.total)-Number(s.paid)),0);
   const inMotion=shipments.filter(s=>s.status==="In transit"||s.status==="Picked up").length;
   async function login(e:FormEvent){
@@ -182,20 +193,37 @@ export default function AdminApp() {
     if(!supabase)return;
     setAuthLoading(true);
     const {error}=await supabase.auth.signInWithPassword({email:email.trim(),password});
-    if(error){setAuthLoading(false);setLoginError("Sign-in failed. Check your email, password, and Supabase Auth setup.");}
+    if(error){setAuthLoading(false);setLoginError("Sign-in failed. Please check your email and password and try again.");}
   }
   async function logout(){
     if(supabase)await supabase.auth.signOut();
     setSession(null);setShipments([]);setDrafts([]);setTrackingUpdates([]);setAdminStatus("signed-out");
   }
-  async function saveShipment(record:Shipment){
+  async function saveShipment(record:Shipment,autoSend=false){
+    const isUpdate=shipments.some(s=>s.id===record.id);
+    let saved:Shipment|null=null;
     try{
-      const isUpdate=shipments.some(s=>s.id===record.id);
-      const saved=await supabaseRepository.saveShipment(record,isUpdate);
-      setShipments(current=>isUpdate?current.map(s=>s.id===saved.id?saved:s):[saved,...current]);
-      setSelectedId(saved.id);setEditing(undefined);setView("shipments");
-      notify("Shipment saved to Supabase.");
-    }catch(error){notify(error instanceof Error?error.message:"Shipment could not be saved.");}
+      saved=await supabaseRepository.saveShipment(record,isUpdate);
+      const next=saved;
+      setShipments(current=>isUpdate?current.map(s=>s.id===next.id?next:s):[next,...current]);
+      setSelectedId(next.id);setEditing(undefined);setView("shipments");
+    }catch(error){notify(error instanceof Error?error.message:"Shipment could not be saved.");return;}
+    if(isUpdate||!autoSend){notify("Shipment saved.");return;}
+    if(saved)await autoEmailReceiver(saved);
+  }
+  async function autoEmailReceiver(s:Shipment){
+    if(!s.recipientEmail){notify("Shipment created. No recipient email, so nothing was sent.");return;}
+    let savedDraft:EmailDraft|null=null;
+    try{
+      savedDraft=await supabaseRepository.saveDraft({id:supabaseRepository.makeId(),shipmentId:s.id,tracking:s.tracking,recipient:s.recipientEmail,subject:`Shipment created · ${s.tracking}`,body:`Hello ${s.recipient},\n\nYour shipment ${s.tracking} has been booked with Qelvaron Global Logistics.\n\nCurrent status: ${s.status}\nEstimated delivery: ${niceDate(s.estimated)}\n\nUse the tracking reference below to follow its progress. Please contact your logistics representative if you have questions.\n\nQelvaron Global Logistics`,updated:new Date().toISOString()});
+      const draft=savedDraft;
+      setDrafts(current=>[draft,...current]);
+      await sendSavedEmail(draft.id,undefined,draft.tracking||undefined);
+      setSentDraftIds(current=>new Set(current).add(draft.id));
+      notify(`Shipment created and email sent to ${s.recipientEmail}.`);
+    }catch(error){
+      notify(`Shipment created, but the email wasn’t sent${savedDraft?" (it’s saved in Customer emails to send manually)":""}: ${error instanceof Error?error.message:"unknown error"}`);
+    }
   }
   async function deleteShipment(s:Shipment){
     if(!window.confirm(`Permanently delete ${s.tracking} and its tracking history? This cannot be undone.`))return;
@@ -241,7 +269,7 @@ export default function AdminApp() {
     if(!confirmed)return;
     setSendingDraftId(draft.id);
     try{
-      await sendSavedEmail(draft.id,editingDraftId===draft.id?emailImage??undefined:undefined);
+      await sendSavedEmail(draft.id,editingDraftId===draft.id?emailImage??undefined:undefined,draft.tracking||undefined);
       setSentDraftIds(current=>new Set(current).add(draft.id));
       setEmailImage(null);setEmailImageError("");
       notify(`Email sent to ${draft.recipient}.`);
@@ -254,23 +282,23 @@ export default function AdminApp() {
   if(!supabaseConfigured)return <div className="qelvaron-admin">
     <SiteHeader/>
     <main className="padding-global admin-login-main"><div className="container-large"><section className="padding-section-large admin-login-layout">
-      <div className="admin-login-intro"><p className="text-size-small admin-kicker">Miami / Operations desk</p><h1 className="heading-style-h1 display-three admin-display-title">Shipment operations</h1><p className="admin-lede">Connect the Supabase project to use the secured operations desk.</p></div>
-      <div className="admin-login-card"><p className="text-size-small admin-kicker">Setup required</p><h2 className="heading-style-h2 admin-card-title">Supabase is not configured</h2><p className="admin-card-copy">{getSupabaseConfigMessage()}</p><div className="login-warning"><strong>Use only the publishable key in the Vite app.</strong> Never add a Supabase service-role key to a <code>VITE_</code> variable.</div></div>
-      <p className="admin-login-foot">Operational records are protected by Supabase Auth and row-level security.</p>
+      <div className="admin-login-intro"><p className="text-size-small admin-kicker">Miami / Operations desk</p><h1 className="heading-style-h1 display-three admin-display-title">Shipment operations</h1><p className="admin-lede">The operations desk is temporarily unavailable.</p></div>
+      <div className="admin-login-card"><p className="text-size-small admin-kicker">Service unavailable</p><h2 className="heading-style-h2 admin-card-title">Please try again later</h2><p className="admin-card-copy">The operations desk can’t be reached right now. If this continues, contact your administrator.</p></div>
+      
     </section></div></main>
   </div>;
 
-  if(authLoading)return <div className="qelvaron-admin"><SiteHeader/><main className="padding-global admin-login-main"><div className="container-large"><section className="padding-section-large admin-login-layout"><div className="admin-login-card"><p className="text-size-small admin-kicker">Operations desk</p><h1 className="heading-style-h2 admin-card-title">Checking secure session</h1><p className="admin-card-copy">Connecting to Supabase Auth…</p></div></section></div></main></div>;
+  if(authLoading)return <div className="qelvaron-admin"><SiteHeader/><main className="padding-global admin-login-main"><div className="container-large"><section className="padding-section-large admin-login-layout"><div className="admin-login-card"><p className="text-size-small admin-kicker">Operations desk</p><h1 className="heading-style-h2 admin-card-title">Checking secure session</h1><p className="admin-card-copy">Please wait…</p></div></section></div></main></div>;
 
   if(session&&adminStatus!=="admin")return <div className="qelvaron-admin">
     <SiteHeader/>
     <main className="padding-global admin-login-main"><div className="container-large"><section className="padding-section-large admin-login-layout">
-      <div className="admin-login-intro"><p className="text-size-small admin-kicker">Miami / Operations desk</p><h1 className="heading-style-h1 display-three admin-display-title">Shipment operations</h1><p className="admin-lede">Your Supabase account is signed in, but shipment records are available only to approved operators.</p></div>
-      <div className="admin-login-card"><p className="text-size-small admin-kicker">{adminStatus==="checking"?"Checking access":"Access not enabled"}</p><h2 className="heading-style-h2 admin-card-title">{adminStatus==="checking"?"Confirming operator access":"Add this user as an operator"}</h2>
-        {adminStatus==="checking"?<p className="admin-card-copy">Verifying your operator permissions…</p>:<><p className="admin-card-copy">{adminStatus==="error"?"Supabase could not verify the operator role. Confirm that supabase/schema.sql has been run.":"Run the bootstrap INSERT in supabase/README.md with this Auth user ID, then sign in again."}</p><code className="admin-user-id" data-testid="text-admin-user-id">{session.user.id}</code>{loginError&&<div className="notice" role="alert"><AlertTriangle/>{loginError}</div>}</>}
+      <div className="admin-login-intro"><p className="text-size-small admin-kicker">Miami / Operations desk</p><h1 className="heading-style-h1 display-three admin-display-title">Shipment operations</h1><p className="admin-lede">You’re signed in, but this account isn’t approved for the operations desk.</p></div>
+      <div className="admin-login-card"><p className="text-size-small admin-kicker">{adminStatus==="checking"?"Checking access":"Access restricted"}</p><h2 className="heading-style-h2 admin-card-title">{adminStatus==="checking"?"Confirming access":adminStatus==="error"?"Couldn’t verify access":"Access not available"}</h2>
+        <p className="admin-card-copy">{adminStatus==="checking"?"Verifying your permissions…":adminStatus==="error"?"We couldn’t verify your access. Please try again, or contact your administrator.":"This account doesn’t have access. Contact your administrator if you think this is a mistake."}</p>
         <button className="button button-primary admin-submit" type="button" onClick={()=>void logout()}><LogOut size={15}/> Sign out</button>
       </div>
-      <p className="admin-login-foot">Only user IDs explicitly added to <code>public.qelvaron_admins</code> can access operations data.</p>
+      
     </section></div></main>
   </div>;
 
@@ -287,16 +315,16 @@ export default function AdminApp() {
           <form className="admin-login-card" onSubmit={login}>
             <p className="text-size-small admin-kicker">Secure operator access</p>
             <h2 className="heading-style-h2 admin-card-title">Sign in to the desk</h2>
-            <p className="admin-card-copy">Sign in with the Supabase Auth account approved for Qelvaron operations.</p>
+            <p className="admin-card-copy">Enter your operator credentials to continue.</p>
             {loginError&&<div className="notice" role="alert" data-testid="status-login-error"><AlertTriangle/>{loginError}</div>}
             <div className="admin-form-stack">
               <div className="admin-field"><label className="contact-field-label" htmlFor="login-email">Email address</label><input className="contact-text-field" id="login-email" type="email" value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="username" data-testid="input-login-email"/></div>
               <div className="admin-field"><label className="contact-field-label" htmlFor="login-password">Password</label><input className="contact-text-field" id="login-password" type="password" value={password} onChange={e=>setPassword(e.target.value)} required autoComplete="current-password" data-testid="input-login-password"/></div>
             </div>
             <button className="primary-button w-variant-13a7ccd8-9ebe-d094-481f-e24b4fc8f662 admin-submit" type="submit" disabled={authLoading} data-testid="button-admin-login">{authLoading?"Signing in…":"Enter operations desk"} <ArrowLeft size={15} style={{transform:"rotate(180deg)"}}/></button>
-            <div className="login-warning"><strong>First-time setup:</strong> create the operator in Supabase Authentication, then add their Auth user ID to <code>public.qelvaron_admins</code> using the SQL in <code>supabase/README.md</code>.</div>
+            
           </form>
-          <p className="admin-login-foot">Shipment records are protected by Supabase row-level security. Approved operators can send customer updates through Resend.</p>
+          <p className="admin-login-foot">Authorized personnel only.</p>
         </section>
       </div>
     </main>
@@ -342,6 +370,16 @@ export default function AdminApp() {
                   </button>
                 </div>)}</div>:<div className="empty-state" style={{padding:"30px 16px"}}><div className="empty-mark"><Mail/></div><h3>No saved emails</h3><p>Compose a shipment update and save it here before sending.</p></div>}
               </div></div>
+            <div className="panel" style={{marginTop:15}} data-testid="panel-email-preview">
+              <div className="panel-head"><div><h2 className="panel-title">Email preview</h2><p className="panel-note">How the message will look to the customer. Updates as you type.</p></div>
+                <div className="row-actions"><button type="button" className={`button button-small${previewMode==="desktop"?" button-primary":""}`} onClick={()=>setPreviewMode("desktop")} data-testid="button-preview-desktop">Desktop</button><button type="button" className={`button button-small${previewMode==="mobile"?" button-primary":""}`} onClick={()=>setPreviewMode("mobile")} data-testid="button-preview-mobile">Mobile</button></div></div>
+              <div style={{background:"#e9edf1",padding:"16px 12px",display:"flex",justifyContent:"center"}}>
+                <div style={{width:previewMode==="mobile"?375:"100%",maxWidth:"100%"}}>
+                  <div style={{fontSize:12,color:"#5b6670",marginBottom:8,lineHeight:1.5}}><div>To: <strong>{draftRecipient||"—"}</strong></div><div>Subject: <strong>{draftSubject||"(No subject)"}</strong></div>{emailImage&&<div>Attachment: <strong>{emailImage.name}</strong></div>}</div>
+                  <iframe title="Email preview" sandbox="" srcDoc={emailPreviewHtml} style={{width:"100%",height:previewMode==="mobile"?560:620,border:"1px solid #d5dbe1",background:"#fff"}} data-testid="iframe-email-preview"/>
+                </div>
+              </div>
+            </div>
           </section>}
           </div>
         </div>
@@ -381,7 +419,7 @@ function SiteHeader({ admin }: { admin?: AdminHeaderProps }) {
             <span className="site-nav-pair"><AdminNavButton active={admin.view==="overview"} label="Overview" onClick={()=>go("overview")} testid="nav-overview"/></span>
             <span className="site-nav-pair"><span className="nav-slash">/</span><AdminNavButton active={admin.view==="shipments"} label="Shipments" onClick={()=>go("shipments")} testid="nav-shipments" count={admin.shipmentCount}/></span>
             <span className="site-nav-pair"><span className="nav-slash">/</span><AdminNavButton active={admin.view==="emails"} label="Customer emails" onClick={()=>go("emails")} testid="nav-customer-emails" count={admin.draftCount}/></span>
-            <span className="site-nav-pair"><span className="nav-slash">/</span>
+            <span className="site-nav-pair admin-signout-pair"><span className="nav-slash">/</span>
               <button type="button" className="nav-link admin-signout" onClick={()=>{setMenuOpen(false);admin.onLogout();}} data-testid="button-logout"><LogOut size={14}/> <span>Sign out</span></button>
             </span>
           </> : links.map(([label,href],index)=><span className="site-nav-pair" key={href}>
