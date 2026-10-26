@@ -15,6 +15,17 @@ const pagePaths = [
   'public/terms-and-conditions/index.html',
 ];
 const appScript = '<script src="/qelvaron-pages.js" defer></script>';
+const smartsuppScript = `<script data-qelvaron-smartsupp>
+var _smartsupp = _smartsupp || {};
+_smartsupp.key = '58d98e358f58c9f7d425b48d7c41780e758d6c75';
+window.smartsupp||(function(d) {
+  var s,c,o=smartsupp=function(){ o._.push(arguments)};o._=[];
+  s=d.getElementsByTagName('script')[0];c=d.createElement('script');
+  c.type='text/javascript';c.charset='utf-8';c.async=true;
+  c.src='https://www.smartsuppchat.com/loader.js?';s.parentNode.insertBefore(c,s);
+})(document);
+</script>`;
+const smartsuppNoscript = `<noscript data-qelvaron-smartsupp>Powered by <a href="https://www.smartsupp.com" target="_blank" rel="noopener noreferrer">Smartsupp</a></noscript>`;
 const trackingSearchStatus =
   'Enter a shipment reference to check its latest status.';
 const localStylesheets = [
@@ -594,38 +605,76 @@ function localizeThemeLinks(html) {
 
 function updatePageTitle(html, pagePath) {
   const metadata = {
+    'index.html': {
+      title: 'Freight & Logistics in Miami | Qelvaron Global Logistics',
+      description:
+        'Coordinate air, sea and land freight with Qelvaron Global Logistics in Miami. Explore freight services, shipment tracking and support for your business.',
+    },
+    'public/about/index.html': {
+      title: 'About Qelvaron Global Logistics | Miami Freight Company',
+      description:
+        'Meet Qelvaron Global Logistics, a Miami-based company coordinating air, sea and land freight with clear communication and careful planning for businesses.',
+    },
+    'public/services/index.html': {
+      title: 'Air, Sea & Land Freight Services | Qelvaron Logistics',
+      description:
+        'Qelvaron freight services include air freight, sea freight, land transport, warehousing and distribution. Compare options for your cargo and delivery schedule.',
+    },
+    'public/contact/index.html': {
+      title: 'Contact Qelvaron | Miami Freight & Logistics Services',
+      description:
+        'Contact Qelvaron Global Logistics in Miami to discuss freight services, request a quote or ask about an existing shipment through our online inquiry form.',
+    },
+    'public/how-it-works/index.html': {
+      title: 'How Freight Shipping Works | Qelvaron Global Logistics',
+      description:
+        'See how Qelvaron coordinates shipments from booking and transport planning to status updates and delivery, with clear steps for air, sea and land freight.',
+    },
     'public/blog/index.html': {
-      title: 'Blog | Qelvaron Global Logistics',
-      description: 'Logistics insights and industry updates from Qelvaron Global Logistics.',
+      title: 'Logistics & Freight Insights | Qelvaron Global Logistics',
+      description:
+        'Read Qelvaron articles on international freight, shipping options, logistics technology and supply-chain planning to support informed business decisions.',
     },
     'public/career/index.html': {
-      title: 'Career | Qelvaron Global Logistics',
-      description: 'Learn about careers and opportunities with Qelvaron Global Logistics.',
+      title: 'Careers at Qelvaron | Global Freight and Logistics',
+      description:
+        'Learn about working at Qelvaron, its team culture and the role logistics professionals play in coordinating freight and supporting customer shipments.',
     },
     'tracking/index.html': {
-      title: 'Shipment Tracking | Qelvaron Global Logistics',
-      description: 'Shipment tracking information and support from Qelvaron Global Logistics.',
+      title: 'Qelvaron Shipment Tracking | Status & Route Updates',
+      description:
+        'Track a Qelvaron shipment with your reference number. View available status updates and route details, or contact the team for help with your shipment.',
     },
     'public/privacy-policy/index.html': {
-      title: 'Privacy Policy | Qelvaron Global Logistics',
-      description: 'Privacy information for visitors to the Qelvaron Global Logistics website.',
+      title: 'Qelvaron Privacy Policy | Website Data and Inquiries',
+      description:
+        'Learn how Qelvaron Global Logistics handles information when you visit the website, send an inquiry, request a quote or use shipment-related services.',
     },
     'public/terms-and-conditions/index.html': {
-      title: 'Terms & Conditions | Qelvaron Global Logistics',
-      description: 'Website terms and conditions for Qelvaron Global Logistics.',
+      title: 'Qelvaron Terms & Conditions | Website and Freight Services',
+      description:
+        'Review the terms for the Qelvaron Global Logistics website, including information about quotes, shipment bookings, freight services and online inquiries.',
     },
   }[pagePath];
   if (!metadata) return html;
 
+  const escapeHtml = (value) =>
+    value
+      .replaceAll('&', '&amp;')
+      .replaceAll('"', '&quot;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;');
+  const title = escapeHtml(metadata.title);
+  const description = escapeHtml(metadata.description);
   const updatedTitle = html.replace(
     /<title\b[^>]*>[\s\S]*?<\/title>/i,
-    `<title>${metadata.title}</title>`,
+    `<title>${title}</title>`,
   );
   return updatedTitle.replace(/<meta\b[^>]*>/gi, (tag) => {
     if (/\b(?:property|name)=["'](?:og:title|twitter:title)["']/i.test(tag)) {
       return tag.replace(
-        /\bcontent=(["'])[^"']*\1/i,
-        `content="${metadata.title}"`,
+        /\bcontent=(["'])(.*?)\1/i,
+        `content="${title}"`,
       );
     }
     if (
@@ -634,8 +683,8 @@ function updatePageTitle(html, pagePath) {
       /\bname=["']twitter:description["']/i.test(tag)
     ) {
       return tag.replace(
-        /\bcontent=(["'])[^"']*\1/i,
-        `content="${metadata.description}"`,
+        /\bcontent=(["'])(.*?)\1/i,
+        `content="${description}"`,
       );
     }
     return tag;
@@ -675,6 +724,8 @@ for (const pagePath of pagePaths) {
   );
   let normalized = stripInjectedScripts(withoutChallenge)
     .replaceAll(appScript, '')
+    .replaceAll(smartsuppScript, '')
+    .replaceAll(smartsuppNoscript, '')
     .replace(/\bdata-wf-domain=(["'])[^"']*\1/i, 'data-wf-domain=""')
     .replace(/<link\b(?=[^>]*\brel=["']canonical["'])[^>]*>/gi, '')
     .replace(
@@ -722,9 +773,11 @@ for (const pagePath of pagePaths) {
     withoutOldOverrides.slice(0, closingHead) +
     homeFavicons.join('') +
     localStylesheets.join('') +
+    smartsuppScript +
     withoutOldOverrides.slice(closingHead);
   const normalizedPage =
     normalizedHead.slice(0, normalizedHead.lastIndexOf('</body>')) +
+    smartsuppNoscript +
     appScript +
     normalizedHead.slice(normalizedHead.lastIndexOf('</body>'));
   if (normalizedPage !== original) {
