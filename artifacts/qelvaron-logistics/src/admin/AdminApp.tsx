@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { AlertTriangle, ArrowDownToLine, ArrowLeft, Check, ClipboardList, FileText, ImagePlus, LogOut, Mail, MapPin, Menu, PackagePlus, Pencil, Plus, Printer, Search, Send, Ship, Trash2, X } from "lucide-react";
+import { AlertTriangle, ArrowDownToLine, ArrowLeft, Check, ClipboardList, FileText, ImagePlus, LogOut, Mail, MapPin, Menu, PackagePlus, Pencil, Plus, Printer, Search, Send, Ship, Trash2, User, X } from "lucide-react";
 import { supabase, supabaseConfigured } from "@/lib/supabase";
 import { EMAIL_IMAGE_TYPES, MAX_EMAIL_IMAGE_BYTES, sendSavedEmail } from "@/lib/edge-functions";
 import { supabaseRepository, type EmailDraft, type Shipment, type ShipmentStatus, type TrackingUpdate } from "./repository";
@@ -338,6 +338,7 @@ export default function AdminApp() {
         shipmentCount: shipments.length,
         draftCount: drafts.length,
         onLogout: () => void logout(),
+        email: session?.user.email ?? "",
       }}/>
       <main className="padding-global admin-main">
         <div className="container-large">
@@ -399,44 +400,66 @@ type AdminHeaderProps = {
   shipmentCount: number;
   draftCount: number;
   onLogout: () => void;
+  email?: string;
 };
 
 function SiteHeader({ admin }: { admin?: AdminHeaderProps }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
   const links = [["Home","/"],["Services","/services/"],["About Us","/about/"],["Contact Us","/contact/"],["How It Works","/how-it-works/"],["Tracking","/tracking/"]];
-  const go = (to: View) => { admin?.onNav(to); setMenuOpen(false); };
+
+  useEffect(() => {
+    if (!profileOpen) return;
+    const onDown = (e: MouseEvent) => { if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setProfileOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
+  }, [profileOpen]);
+
+  const go = (to: View) => { admin?.onNav(to); setProfileOpen(false); };
+  const menuItems: { view: View; label: string; icon: ReactNode; count: number; testid: string }[] = admin ? [
+    { view: "overview", label: "Overview", icon: <ClipboardList size={16}/>, count: -1, testid: "nav-overview" },
+    { view: "shipments", label: "Shipments", icon: <Ship size={16}/>, count: admin.shipmentCount, testid: "nav-shipments" },
+    { view: "emails", label: "Customer emails", icon: <Mail size={16}/>, count: admin.draftCount, testid: "nav-customer-emails" },
+  ] : [];
+  const itemStyle = (active: boolean) => ({ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 12px", border: 0, borderRadius: 8, background: active ? "#f1f3f7" : "transparent", color: "#060517", fontSize: 14, fontWeight: active ? 600 : 500, textAlign: "left" as const, cursor: "pointer" });
 
   return <header className="qelvaron-site-header">
     <div data-wf--navbar--variant="secondary" data-animation="default" data-collapse="medium" role="banner" className="navbar w-variant-b70c6a90-d637-7a16-8a9b-9a8545e8ba2c w-nav">
       <div className="container-large nav">
         <a href="/" className="brand-link w-inline-block" aria-label="Qelvaron Global Logistics home">
-          <img loading="lazy" src="/qelvaron-logo-light.svg" alt="Qelvaron Global Logistics" className="brand-logo base w-variant-b70c6a90-d637-7a16-8a9b-9a8545e8ba2c"/>
-          <img loading="lazy" src="/qelvaron-logo-dark.svg" alt="Qelvaron Global Logistics" className="brand-logo secondary w-variant-b70c6a90-d637-7a16-8a9b-9a8545e8ba2c"/>
+          <img width={1819} height={985} loading="eager" src="/qelvaron-logo-dark.webp" alt="Qelvaron Global Logistics" className="brand-logo base w-variant-b70c6a90-d637-7a16-8a9b-9a8545e8ba2c" ref={el => { el?.style.setProperty("display", "block", "important"); }}/>
         </a>
 
-        <nav role="navigation" aria-label={admin ? "Operations navigation" : "Qelvaron public navigation"} className={`nav-menu w-nav-menu ${menuOpen ? "admin-nav-open" : ""}`}>
-          {admin ? <>
-            <span className="site-nav-pair"><AdminNavButton active={admin.view==="overview"} label="Overview" onClick={()=>go("overview")} testid="nav-overview"/></span>
-            <span className="site-nav-pair"><span className="nav-slash">/</span><AdminNavButton active={admin.view==="shipments"} label="Shipments" onClick={()=>go("shipments")} testid="nav-shipments" count={admin.shipmentCount}/></span>
-            <span className="site-nav-pair"><span className="nav-slash">/</span><AdminNavButton active={admin.view==="emails"} label="Customer emails" onClick={()=>go("emails")} testid="nav-customer-emails" count={admin.draftCount}/></span>
-            <span className="site-nav-pair admin-signout-pair"><span className="nav-slash">/</span>
-              <button type="button" className="nav-link admin-signout" onClick={()=>{setMenuOpen(false);admin.onLogout();}} data-testid="button-logout"><LogOut size={14}/> <span>Sign out</span></button>
-            </span>
-          </> : links.map(([label,href],index)=><span className="site-nav-pair" key={href}>
+        {!admin && <nav role="navigation" aria-label="Qelvaron public navigation" className={`nav-menu w-nav-menu ${menuOpen ? "admin-nav-open" : ""}`}>
+          {links.map(([label,href],index)=><span className="site-nav-pair" key={href}>
             {index>0&&<span className="nav-slash w-variant-b70c6a90-d637-7a16-8a9b-9a8545e8ba2c">/</span>}
             <a nav-link="" href={href} className="nav-link w-variant-b70c6a90-d637-7a16-8a9b-9a8545e8ba2c"><span>{label}</span></a>
           </span>)}
-        </nav>
+        </nav>}
 
         <div className="nav-right-content">
-          <button type="button" className="menu w-nav-button admin-menu-toggle" aria-label={menuOpen?"Close navigation":"Open navigation"} aria-expanded={menuOpen} onClick={()=>setMenuOpen(!menuOpen)} data-testid="button-site-menu">{menuOpen?<X/>:<Menu/>}</button>
+          {admin ? <div ref={profileRef} style={{ position: "relative" }}>
+            <button type="button" aria-label="Account menu" aria-haspopup="menu" aria-expanded={profileOpen} onClick={() => setProfileOpen(open => !open)} data-testid="button-profile-menu" style={{ width: 44, height: 44, borderRadius: "50%", border: "1px solid #d5dbe1", background: "#fff", color: "#060517", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}><User size={20}/></button>
+            {profileOpen && <div role="menu" style={{ position: "absolute", right: 0, top: "calc(100% + 10px)", width: 256, background: "#fff", border: "1px solid #e3e8ee", borderRadius: 12, boxShadow: "0 18px 40px rgba(6,5,23,.16)", padding: 6, zIndex: 200, textAlign: "left" }}>
+              <div style={{ padding: "10px 12px 12px", borderBottom: "1px solid #eef1f4", marginBottom: 6 }}>
+                <div style={{ fontSize: 11, color: "#7c8791", textTransform: "uppercase", letterSpacing: ".06em" }}>Signed in as</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#060517", wordBreak: "break-all", marginTop: 2 }} data-testid="text-profile-email">{admin.email || "Operator"}</div>
+              </div>
+              {menuItems.map(item => <button key={item.view} type="button" role="menuitem" style={itemStyle(admin.view === item.view)} onClick={() => go(item.view)} aria-current={admin.view === item.view ? "page" : undefined} data-testid={item.testid}>
+                {item.icon}<span style={{ flex: 1 }}>{item.label}</span>{item.count >= 0 && <span style={{ fontSize: 11, fontWeight: 600, background: "#eef1f4", borderRadius: 10, padding: "2px 8px" }}>{item.count}</span>}
+              </button>)}
+              <div style={{ borderTop: "1px solid #eef1f4", marginTop: 6, paddingTop: 6 }}>
+                <button type="button" role="menuitem" style={{ ...itemStyle(false), color: "#b42318" }} onClick={() => { setProfileOpen(false); admin.onLogout(); }} data-testid="button-logout"><LogOut size={16}/><span>Sign out</span></button>
+              </div>
+            </div>}
+          </div> : <button type="button" className="menu w-nav-button admin-menu-toggle" aria-label={menuOpen?"Close navigation":"Open navigation"} aria-expanded={menuOpen} onClick={()=>setMenuOpen(!menuOpen)} data-testid="button-site-menu">{menuOpen?<X/>:<Menu/>}</button>}
         </div>
       </div>
     </div>
   </header>;
-}
-function AdminNavButton({active,label,onClick,testid,count}:{active:boolean;label:string;onClick:()=>void;testid:string;count?:number}){
-  return <button type="button" className={`nav-link admin-tab ${active?"w--current":""}`} onClick={onClick} aria-current={active?"page":undefined} data-testid={testid}><span>{label}</span>{count!==undefined&&<span className="admin-tab-count">{count}</span>}</button>;
 }
 function Overview({shipments,balance,inMotion,onViewAll,onCreate,onSelect}:{shipments:Shipment[];balance:number;inMotion:number;onViewAll:()=>void;onCreate:()=>void;onSelect:(s:Shipment)=>void}){
   const booked=shipments.filter(s=>s.status==="Booked").length;
@@ -473,7 +496,7 @@ function ShipmentTable({shipments,selectedId,onSelect,onEdit,onDelete,onPrint}:{
 function PrintSheet({shipment:s,preview=false}:{shipment:Shipment;preview?:boolean}){
   const fee=Number(s.customFee)||0,shippingCharge=Math.max(0,Number(s.total)-fee),bal=Math.max(0,Number(s.total)-Number(s.paid));
   return <article className={`print-sheet${preview?" print-preview-sheet":""}`} data-testid={preview?"print-invoice-preview":"print-shipment-record"}>
-    <div className="print-header"><img src="/qelvaron-logo-dark.svg" alt="Qelvaron Global Logistics"/><div className="print-title"><h1>Shipment waybill</h1><p>Operations record · Preview copy</p></div></div>
+    <div className="print-header"><img src="/qelvaron-logo-dark.webp" alt="Qelvaron Global Logistics"/><div className="print-title"><h1>Shipment waybill</h1><p>Operations record · Preview copy</p></div></div>
     <div className="print-ref"><span>Tracking reference</span><strong>{s.tracking}</strong><span className={`status ${statusClass(s.status)}`}>{s.status}</span></div>
     <div className="print-columns">
       <PrintBlock title="Sender / Origin"><p><b>{s.sender}</b></p><p>{s.senderEmail} · {s.senderPhone}</p><p>{fullOrigin(s)}</p></PrintBlock>
