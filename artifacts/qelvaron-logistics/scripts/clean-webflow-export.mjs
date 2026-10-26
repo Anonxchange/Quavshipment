@@ -1,7 +1,22 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { loadEnv } from 'vite';
 
 const appRoot = resolve(import.meta.dirname, '..');
+const envMode =
+  process.env.NODE_ENV ??
+  (process.env.npm_lifecycle_event === 'prebuild' ? 'production' : 'development');
+const viteEnv = loadEnv(envMode, appRoot, 'VITE_');
+const publicSupabaseConfig = {
+  url:
+    process.env.VITE_SUPABASE_URL?.trim() ||
+    viteEnv.VITE_SUPABASE_URL?.trim() ||
+    '',
+  publishableKey:
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() ||
+    viteEnv.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() ||
+    '',
+};
 const pagePaths = [
   'index.html',
   'public/about/index.html',
@@ -545,6 +560,41 @@ function normalizeHomeHeroTrackingSearch(html, pagePath) {
   return result;
 }
 
+function normalizeContactForm(html, pagePath) {
+  if (pagePath !== 'public/contact/index.html') return html;
+
+  const openingForm = /<form\b(?=[^>]*\bid=["']wf-form-Contact-Form["'])[^>]*>/i.exec(
+    html,
+  );
+  if (!openingForm) {
+    throw new Error(`Could not find the contact form in ${pagePath}`);
+  }
+
+  const formEnd = matchingElementEnd(
+    html,
+    openingForm.index,
+    'form',
+    pagePath,
+  );
+  const form = html.slice(openingForm.index, formEnd);
+  if (/\bname=["']website["']/i.test(form)) return html;
+
+  const submit = /<input\b(?=[^>]*\btype=["']submit["'])[^>]*>/i.exec(form);
+  if (!submit) {
+    throw new Error(`Could not find the contact submit button in ${pagePath}`);
+  }
+
+  const honeypot =
+    '<div aria-hidden="true" style="position:absolute!important;left:-10000px!important;top:auto!important;width:1px!important;height:1px!important;overflow:hidden!important"><label for="qelvaron-website">Website</label><input id="qelvaron-website" name="website" type="text" tabindex="-1" autocomplete="off"></div>';
+  const updatedForm = form.replace(submit[0], `${honeypot}${submit[0]}`);
+
+  return (
+    html.slice(0, openingForm.index) +
+    updatedForm +
+    html.slice(formEnd)
+  );
+}
+
 function normalizeHeaderQuoteCta(html) {
   const navButtons = /<div\b(?=[^>]*\bclass=["'][^"']*\bnav-buttons-wrap\b[^"']*["'])[^>]*>/i.exec(
     html,
@@ -740,6 +790,7 @@ for (const pagePath of pagePaths) {
   normalized = normalizeBrand(normalized, pagePath);
   normalized = normalizeNavigation(normalized, pagePath);
   normalized = normalizeHeaderQuoteCta(normalized);
+  normalized = normalizeContactForm(normalized, pagePath);
   if (pagePath === 'index.html') {
     normalized = normalizeHomeHeroTrackingSearch(normalized, pagePath);
   }
@@ -756,7 +807,11 @@ for (const pagePath of pagePaths) {
     /<link\b(?=[^>]*\brel=["'](?:icon|apple-touch-icon)["'])[^>]*>/gi,
     '',
   );
-  const withoutOldOverrides = withoutOldFavicons.replaceAll(
+  const withoutOldRuntimeConfig = withoutOldFavicons.replace(
+    /<script\b(?=[^>]*\bdata-qelvaron-supabase-config\b)[^>]*>[\s\S]*?<\/script>/gi,
+    '',
+  );
+  const withoutOldOverrides = withoutOldRuntimeConfig.replaceAll(
     contentOverrides,
     '',
   );
@@ -775,8 +830,15 @@ for (const pagePath of pagePaths) {
     localStylesheets.join('') +
     smartsuppScript +
     withoutOldOverrides.slice(closingHead);
+  const contactConfigScript =
+    pagePath === 'public/contact/index.html'
+      ? `<script data-qelvaron-supabase-config>window.QELVARON_SUPABASE_CONFIG=${JSON.stringify(
+          publicSupabaseConfig,
+        ).replaceAll('<', '\\u003c')};</script>`
+      : '';
   const normalizedPage =
     normalizedHead.slice(0, normalizedHead.lastIndexOf('</body>')) +
+    contactConfigScript +
     smartsuppNoscript +
     appScript +
     normalizedHead.slice(normalizedHead.lastIndexOf('</body>'));
