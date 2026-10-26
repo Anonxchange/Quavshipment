@@ -28,3 +28,103 @@ html[data-wf-page="6a62a326afaed27e0df86e95"] .brand-logo.secondary {
     margin-bottom: 1.5rem;
   }
 }
+
+/* Footer (mobile): left-aligned columns that fill the full width evenly. */
+.footer .footer-top {
+  align-items: stretch !important;
+}
+
+.footer .footer-contents,
+.footer .qv-cols {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  box-sizing: border-box;
+}
+
+.footer .qv-cols {
+  justify-items: stretch;
+}
+
+/* License: one horizontal row of 4, spread across the full width, never clipped. */
+.footer .qv-lic {
+  display: flex !important;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+}
+
+.footer .qv-lic > div {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: left;
+}
+
+.footer .qv-lic small {
+  display: block;
+  margin-bottom: 0.2rem;
+  color: inherit;
+  text-align: left;
+}
+
+.footer .qv-lic .footer-page-link {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  color: inherit;
+  text-align: left;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: visible;
+}
+
+/* Only on very narrow phones, let License wrap to 2 rows instead of clipping. */
+@media screen and (max-width: 359px) {
+  .footer .qv-lic {
+    flex-wrap: wrap;
+  }
+  .footer .qv-lic > div {
+    flex: 0 0 calc(50% - 0.25rem);
+  }
+}
+
+/* Tablet (640px+): 2x2 grid, License as a 2-column block. Mobile above is untouched. */
+@media screen and (min-width: 640px) {
+  .footer .qv-lic {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 1rem 1.5rem !important;
+  }
+  .footer .qv-lic .footer-page-link {
+    font-size: inherit;
+    white-space: normal;
+  }
+}
+
+/* Desktop (992px+): Quick Links split into two sub-columns, scaling gaps. */
+@media screen and (min-width: 992px) {
+  .footer .qv-cols {
+    grid-template-columns: 1.7fr 1fr 1.4fr 1fr !important;
+    gap: 3rem clamp(2rem, 4vw, 5rem) !important;
+  }
+
+  .footer .qv-cols > .footer-top-contents:first-child .footer-pages-links {
+    display: grid !important;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(5, auto);
+    grid-template-columns: repeat(2, minmax(0, max-content));
+    column-gap: clamp(1.5rem, 3vw, 3rem);
+    row-gap: 0.7rem;
+  }
+}
+
+/* Large screens (1400px+): a little more breathing room between columns. */
+@media screen and (min-width: 1400px) {
+  .footer .qv-cols {
+    gap: 3rem clamp(4rem, 5vw, 6rem) !important;
+  }
+}
