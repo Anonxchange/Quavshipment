@@ -67,7 +67,7 @@ html[data-wf-page="6a62a326afaed27e0df86e95"] .brand-logo.secondary {
 .footer .qv-lic small {
   display: block;
   margin-bottom: 0.2rem;
-  color: inherit;
+  color: var(--_colors---primary-100) !important;
   text-align: left;
 }
 
@@ -75,7 +75,7 @@ html[data-wf-page="6a62a326afaed27e0df86e95"] .brand-logo.secondary {
   display: block !important;
   opacity: 1 !important;
   visibility: visible !important;
-  color: inherit;
+  color: var(--_colors---primary-100) !important;
   text-align: left;
   font-size: 0.8rem;
   white-space: nowrap;
@@ -127,4 +127,64 @@ html[data-wf-page="6a62a326afaed27e0df86e95"] .brand-logo.secondary {
   .footer .qv-cols {
     gap: 3rem clamp(4rem, 5vw, 6rem) !important;
   }
+}
+
+/* Tablet and desktop: center each footer group within its column. */
+@media screen and (min-width: 768px) {
+  .footer .qv-cols > .footer-top-contents {
+    align-items: center !important;
+    text-align: center !important;
+  }
+
+  .footer .qv-cols .footer-content-header {
+    align-self: center;
+    text-align: center !important;
+  }
+
+  .footer .qv-cols .footer-pages-links {
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center;
+  }
+
+  .footer .qv-lic,
+  .footer .qv-lic > div {
+    text-align: center;
+  }
+
+  .footer .qv-lic {
+    justify-items: center;
+  }
+
+  .footer .qv-lic small,
+  .footer .qv-lic .footer-page-link {
+    text-align: center !important;
+  }
+
+  .footer .qv-lic small {
+    opacity: 0.72;
+  }
+}
+
+@media screen and (min-width: 992px) {
+  .footer .qv-cols {
+    grid-template-columns: minmax(0, 1.35fr) repeat(3, minmax(0, 1fr)) !important;
+    align-items: start;
+  }
+
+  .footer .qv-cols > .footer-top-contents:first-child .footer-pages-links {
+    justify-content: center;
+    justify-items: center;
+  }
+}
+
+.qelvaron-contact-status {
+  margin: 0.75rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #ffffff;
+}
+
+.qelvaron-contact-status[data-state="error"] {
+  color: #ffb4a9;
 }
