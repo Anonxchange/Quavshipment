@@ -31,7 +31,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' https://cdn.prod.website-files.com https://cdnjs.cloudflare.com; style-src-attr 'unsafe-inline'; img-src 'self' data: blob: https://cdn.prod.website-files.com https://cdnjs.cloudflare.com; font-src 'self' data: https://cdn.prod.website-files.com https://cdnjs.cloudflare.com; connect-src 'self' https: wss:; object-src 'none'; base-uri 'self'; form-action 'self' https:; frame-ancestors 'none'; upgrade-insecure-requests"
+          "value": "default-src 'self'; script-src 'self' https://cdn.prod.website-files.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' https://cdn.prod.website-files.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src-attr 'unsafe-inline'; img-src 'self' data: blob: https://cdn.prod.website-files.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; font-src 'self' data: https://cdn.prod.website-files.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; connect-src 'self' https: wss:; object-src 'none'; base-uri 'self'; form-action 'self' https:; frame-ancestors 'none'; upgrade-insecure-requests"
         }
       ]
     }
