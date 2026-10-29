@@ -17,7 +17,18 @@ function showContactStatus(form, state, message) {
 }
 
 async function submitContactInquiry(form) {
-  const config = window.QELVARON_SUPABASE_CONFIG;
+  const config = {
+    url:
+      document
+        .querySelector('meta[name="qelvaron-supabase-url"]')
+        ?.getAttribute('content')
+        ?.trim() ?? '',
+    publishableKey:
+      document
+        .querySelector('meta[name="qelvaron-supabase-publishable-key"]')
+        ?.getAttribute('content')
+        ?.trim() ?? '',
+  };
   if (!config?.url || !config?.publishableKey) {
     showContactStatus(
       form,
