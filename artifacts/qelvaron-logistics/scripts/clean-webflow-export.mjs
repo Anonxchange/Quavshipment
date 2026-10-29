@@ -17,6 +17,14 @@ const publicSupabaseConfig = {
     viteEnv.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() ||
     '',
 };
+function escapeHtmlAttribute(value) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+}
 const pagePaths = [
   'index.html',
   'public/about/index.html',
@@ -808,7 +816,7 @@ for (const pagePath of pagePaths) {
     '',
   );
   const withoutOldRuntimeConfig = withoutOldFavicons.replace(
-    /<script\b(?=[^>]*\bdata-qelvaron-supabase-config\b)[^>]*>[\s\S]*?<\/script>/gi,
+    /(?:<script\b(?=[^>]*\bdata-qelvaron-supabase-config\b)[^>]*>[\s\S]*?<\/script>|<meta\b(?=[^>]*\bname=["']qelvaron-supabase-(?:url|publishable-key)["'])[^>]*>)/gi,
     '',
   );
   const withoutOldOverrides = withoutOldRuntimeConfig.replaceAll(
@@ -824,21 +832,23 @@ for (const pagePath of pagePaths) {
     throw new Error(`Could not find the end of the page body in ${pagePath}`);
   }
 
+  const contactConfigMeta =
+    pagePath === 'public/contact/index.html'
+      ? `<meta name="qelvaron-supabase-url" content="${escapeHtmlAttribute(
+          publicSupabaseConfig.url,
+        )}"><meta name="qelvaron-supabase-publishable-key" content="${escapeHtmlAttribute(
+          publicSupabaseConfig.publishableKey,
+        )}">`
+      : '';
   const normalizedHead =
     withoutOldOverrides.slice(0, closingHead) +
     homeFavicons.join('') +
     localStylesheets.join('') +
     smartsuppScript +
+    contactConfigMeta +
     withoutOldOverrides.slice(closingHead);
-  const contactConfigScript =
-    pagePath === 'public/contact/index.html'
-      ? `<script data-qelvaron-supabase-config>window.QELVARON_SUPABASE_CONFIG=${JSON.stringify(
-          publicSupabaseConfig,
-        ).replaceAll('<', '\\u003c')};</script>`
-      : '';
   const normalizedPage =
     normalizedHead.slice(0, normalizedHead.lastIndexOf('</body>')) +
-    contactConfigScript +
     smartsuppNoscript +
     appScript +
     normalizedHead.slice(normalizedHead.lastIndexOf('</body>'));
