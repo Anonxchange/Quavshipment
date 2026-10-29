@@ -1,5 +1,6 @@
 
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "pnpm install --no-frozen-lockfile",
   "buildCommand": "PORT=26262 BASE_PATH=/ pnpm --filter @workspace/qelvaron-logistics run build",
   "outputDirectory": "artifacts/qelvaron-logistics/dist/public",
@@ -30,7 +31,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'none'; img-src 'self' data: https:; font-src 'self' data: https:; connect-src 'self' https: wss:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+          "value": "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' https://cdn.prod.website-files.com https://cdnjs.cloudflare.com; style-src-attr 'unsafe-inline'; img-src 'self' data: blob: https://cdn.prod.website-files.com https://cdnjs.cloudflare.com; font-src 'self' data: https://cdn.prod.website-files.com https://cdnjs.cloudflare.com; connect-src 'self' https: wss:; object-src 'none'; base-uri 'self'; form-action 'self' https:; frame-ancestors 'none'; upgrade-insecure-requests"
         }
       ]
     }
